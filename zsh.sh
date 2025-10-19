@@ -208,57 +208,8 @@ update() {
     "$pybin" -m pip install --upgrade pip setuptools wheel || true
     if command -v pipx >/dev/null 2>&1; then
       export PIPX_DEFAULT_PYTHON="$pybin"
-      
-      local need_recreate=false
-      
-      local pipx_envs_json="$(pipx list --json 2>/dev/null)"
-      if [[ -n "$pipx_envs_json" ]]; then
-        local current_python_version=""
-        if command -v "$pybin" >/dev/null 2>&1; then
-          current_python_version="$("$pybin" -c "import sys;print('.'.join(map(str,sys.version_info[:3])))" 2>/dev/null || echo "")"
-        fi
-        
-        local venv_count=0
-        local mismatch_count=0
-        
-        while IFS= read -r line; do
-          [[ -z "$line" ]] && continue
-          local env_name="$(echo "$line" | jq -r '.key // empty' 2>/dev/null)"
-          local env_version="$(echo "$line" | jq -r '.value.metadata.python_version // empty' 2>/dev/null)"
-          
-          if [[ -n "$env_name" ]]; then
-            ((venv_count++))
-            
-            if [[ -n "$current_python_version" && -n "$env_version" ]]; then
-              if [[ "$env_version" != *"$current_python_version"* ]]; then
-                ((mismatch_count++))
-              fi
-            else
-              ((mismatch_count++))
-            fi
-          fi
-        done < <(echo "$pipx_envs_json" | jq -c '.venvs | to_entries[]' 2>/dev/null)
-        
-        if [[ $venv_count -gt 0 && $mismatch_count -gt 0 ]]; then
-          need_recreate=true
-        fi
-      else
-        need_recreate=false
-      fi
-      
-      if [[ "$need_recreate" == "true" ]]; then
-        echo "[pipx] Recreating environments with $PIPX_DEFAULT_PYTHON..."
-        local pipx_packages=()
-        while IFS= read -r pkg; do
-          [[ -n "$pkg" ]] && pipx_packages+=("$pkg")
-        done < <(pipx list --short 2>/dev/null | awk '{print $1}')
-        for pkg in "${pipx_packages[@]}"; do
-          pipx uninstall "$pkg" >/dev/null 2>&1 || true
-          pipx install --python "$pybin" "$pkg" || echo "[pipx] Failed to install $pkg (see output above)."
-        done
-      else
-        echo "[pipx] Environments already use $PIPX_DEFAULT_PYTHON (skipping)."
-      fi
+      echo "[pipx] Upgrading all packages with $PIPX_DEFAULT_PYTHON..."
+      pipx upgrade-all --python "$pybin" 2>/dev/null || true
     fi
     "$pybin" -m pip list --outdated --format=freeze 2>/dev/null \
       | cut -d= -f1 | xargs -n1 "$pybin" -m pip install -U || true
@@ -285,7 +236,7 @@ update() {
     local active_nvm="$(nvm current 2>/dev/null || true)"
     if [[ -n "$active_nvm" && "$active_nvm" != "system" ]]; then
       echo "[nvm] Removing older Node versions (keeping $active_nvm)..."
-      nvm list --no-colors 2>/dev/null | sed -n 's/^[^v]*\(v[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' | while read -r ver; do
+      nvm list --no-colors 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | while read -r ver; do
         [[ "$ver" == "$active_nvm" ]] && continue
         echo "  removing $ver"
         nvm uninstall "$ver" || true
@@ -367,9 +318,12 @@ verify() {
     ok "Ruby" "$(ruby -v)"
     command -v gem >/dev/null 2>&1 && ok "Gem" "$(gem -v)"
     if command -v chruby >/dev/null 2>&1; then
-      local active="$(chruby | awk '/\*/{print $2; exit}')"
-      local latest="$(_chruby_latest_installed)"
-      [[ -n "$latest" && "$active" == "$latest" ]] && ok "chruby" "active $active" || warn "chruby" "active ${active:-system}; latest ${latest:-unknown}"
+      local chruby_version="$(chruby --version 2>/dev/null | head -n1)"
+      if [[ -n "$chruby_version" ]]; then
+        ok "chruby" "$chruby_version"
+      else
+        ok "chruby" "installed"
+      fi
     fi
   else
     miss "Ruby"
@@ -410,7 +364,14 @@ verify() {
   command -v java >/dev/null 2>&1 && ok "Java" "$(java -version 2>&1 | head -n1)" || miss "Java"
   command -v clang >/dev/null 2>&1 && ok "Clang" "$(clang --version | head -n1)" || miss "Clang"
   command -v gcc  >/dev/null 2>&1 && ok "GCC"  "$(gcc --version | head -n1)" || warn "GCC" "not found"
-  command -v mysql>/dev/null 2>&1 && ok "MySQL" "$(mysql --version)" || warn "MySQL" "not found"
+  
+  if command -v mysql >/dev/null 2>&1; then
+    ok "MySQL" "$(mysql --version)"
+  elif [[ -x /usr/local/mysql/bin/mysql ]]; then
+    ok "MySQL" "$(/usr/local/mysql/bin/mysql --version)"
+  else
+    warn "MySQL" "not found"
+  fi
 
   if command -v docker >/dev/null 2>&1; then
     ok "Docker" "$(docker -v)"
@@ -458,6 +419,14 @@ versions() {
   echo "================== TOOL VERSIONS =================="
   command -v ruby >/dev/null 2>&1 && echo "Ruby ........... $(ruby -v)" || echo "Ruby ........... not installed"
   command -v gem  >/dev/null 2>&1 && echo "Gem ............ $(gem -v)" || true
+  if command -v chruby >/dev/null 2>&1; then
+    local chruby_version="$(chruby --version 2>/dev/null | head -n1)"
+    if [[ -n "$chruby_version" ]]; then
+      echo "chruby ......... $chruby_version"
+    else
+      echo "chruby ......... installed"
+    fi
+  fi
 
   if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
     echo "Python ......... $(python3 -V 2>/dev/null || python -V 2>/dev/null)"
