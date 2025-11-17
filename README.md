@@ -2,7 +2,7 @@
 
 A simple and basic quick guide for macOS with focus on a clean environment for both development and cybersecurity, with ZSH configuration and Ghostty terminal config that keeps development tools updated and the system clean.
 
-![Terminal preview](background/1.png)
+![Terminal preview](background/image.png)
 
 ## What does zsh.sh do?
 
