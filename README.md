@@ -1,6 +1,8 @@
 # My macOS Setup
 
-A simple and basic quick guide with ZSH configuration for macOS that keeps development tools updated and the system clean.
+A simple and basic quick guide for macOS with focus on a clean environment for both development and cybersecurity, with ZSH configuration and Ghostty terminal config that keeps development tools updated and the system clean.
+
+![Terminal preview](1.png)
 
 ## What does zsh.sh do?
 
@@ -57,7 +59,7 @@ versions  # Show versions of all tools
 ## Useful Programs I Use
 
 ### Cybersecurity & CTF Tools
-All tools for cybersec and CTF practice are installed through Homebrew & Macports for easy maintenance and upgrades.
+All tools for cybersec and CTF practice are installed through Homebrew & MacPorts for easy maintenance and upgrades.
 
 ### Virtualization
 - **VMware Fusion 13 Pro** - For Kali Linux and Windows 11 VMs
@@ -116,6 +118,9 @@ macOS has issues with handling system data and resources after removing/uninstal
 - **[Keka](https://github.com/aonez/Keka)** - For zipping and extracting files
 - **[Maccy](https://github.com/p0deje/Maccy)** - Clipboard history manager
 - **[Ice](https://github.com/jordanbaird/Ice)** - Menu bar modification tool
+- **[Ghostty](https://github.com/mitchellh/ghostty)** - Terminal emulator (see config section below)
+- **CleanMyMac** - System cleaner (use with blocked network connections)
+- **[BetterDisplay](https://github.com/waydabber/BetterDisplay)** - Better control of display scaling and resolution
 
 ## Terminal Configuration
 
@@ -124,6 +129,11 @@ macOS has issues with handling system data and resources after removing/uninstal
 plugins=(git zsh-syntax-highlighting zsh-autosuggestions)
 [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
 ```
+
+### Ghostty (terminal)
+- Config file in this repo: `Ghostty config.txt`
+- In Ghostty settings, open the config file and paste in the contents of `Ghostty config.txt`.
+- The background image `1.png` is included in this folder; use it as your Ghostty background or point `background-image` to your own image.
 
 ### Useful Tools
 - [FZF](https://github.com/junegunn/fzf) - Fuzzy finder

@@ -1,0 +1,58 @@
+# ===============================
+#  Ghostty Config
+# ===============================
+
+# --- Basic behavior ---
+desktop-notifications = false
+quit-after-last-window-closed = true
+shell-integration = zsh
+clipboard-write = allow
+copy-on-select = false
+
+# --- Appearance ---
+window-theme = dark
+theme = "Raycast Dark"
+
+# --- Solid background layer ---
+background = #000000
+background-opacity = 0.75
+
+# --- Background image ---
+background-image = "/Users/USERNAME/Pictures/1.png"
+background-image-opacity = 0.85
+background-image-fit = cover
+background-image-position = center
+background-image-repeat = false
+
+# --- Blur ---
+background-blur-radius = 20
+
+# --- Window layout ---
+window-padding-x = 12
+window-padding-y = 12
+macos-titlebar-style = tabs
+macos-icon = glass
+
+# --- Cursor & selection ---
+cursor-color = #cccccc
+cursor-text = #000000
+selection-background = #333333
+selection-foreground = #ffffff
+
+# --- Colors ---
+palette = 0=#000000
+palette = 1=#ff5360
+palette = 2=#59d499
+palette = 3=#ffc531
+palette = 4=#56c2ff
+palette = 5=#cf2f98
+palette = 6=#52eee5
+palette = 7=#ffffff
+palette = 8=#4c4c4c
+palette = 9=#ff6363
+palette = 10=#59d499
+palette = 11=#ffc531
+palette = 12=#56c2ff
+palette = 13=#cf2f98
+palette = 14=#52eee5
+palette = 15=#ffffff
