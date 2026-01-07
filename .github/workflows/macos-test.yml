@@ -106,49 +106,36 @@ jobs:
           
           # Validate update alias
           echo "Validating update alias..."
-          zsh -lc '
-            # Check if alias exists
-            if ! alias update >/dev/null 2>&1; then
-              echo "ERROR: update alias not defined"
-              echo "Available aliases:"
-              alias | grep -E "(update|verify|versions)" || echo "  (none found)"
-              exit 1
-            fi
-            
-            # Get alias value using sed (most reliable for parsing alias output)
-            alias_output=$(alias update)
-            echo "Alias output: $alias_output"
-            
-            # Extract value between quotes (handles both single and double quotes)
-            alias_value=$(echo "$alias_output" | sed -E "s/^update=['\"]?([^'\"]+)['\"]?.*/\1/")
-            cmd=$(echo "$alias_value" | awk '{print $1}')
-            
-            echo "Extracted command: $cmd"
-            
-            if [[ -z "$cmd" ]]; then
-              echo "ERROR: update alias has no command"
-              exit 1
-            fi
-            
-            # Check if command is executable (try both direct path and PATH lookup)
-            if [[ -x "$cmd" ]]; then
-              echo "SUCCESS: update alias points to executable: $cmd"
-              exit 0
-            elif command -v "$cmd" >/dev/null 2>&1; then
-              cmd_path=$(command -v "$cmd")
-              if [[ -x "$cmd_path" ]]; then
-                echo "SUCCESS: update alias command found in PATH and executable: $cmd_path"
-                exit 0
-              else
-                echo "ERROR: update alias command found in PATH but not executable: $cmd_path"
-                exit 1
-              fi
+          alias_value="$(zsh -lc 'print -r -- ${aliases[update]:-}')" || { echo "Failed to read update alias"; exit 1; }
+          if [[ -z "$alias_value" ]]; then
+            echo "ERROR: update alias not defined"
+            echo "Available aliases:"
+            zsh -lc 'alias' | grep -E "update|verify|versions" || echo "  none found"
+            exit 1
+          fi
+          
+          cmd="${alias_value%% *}"
+          echo "Alias command: $cmd"
+          if [[ -z "$cmd" ]]; then
+            echo "ERROR: update alias has no command"
+            exit 1
+          fi
+          
+          if [[ -x "$cmd" ]]; then
+            echo "SUCCESS: update alias points to executable: $cmd"
+          elif command -v "$cmd" >/dev/null 2>&1; then
+            cmd_path=$(command -v "$cmd")
+            if [[ -x "$cmd_path" ]]; then
+              echo "SUCCESS: update alias command found in PATH and executable: $cmd_path"
             else
-              echo "ERROR: update alias command not found or not executable: $cmd"
-              echo "PATH: $PATH"
+              echo "ERROR: update alias command found in PATH but not executable: $cmd_path"
               exit 1
             fi
-          ' || { echo "update alias validation failed"; exit 1; }
+          else
+            echo "ERROR: update alias command not found or not executable: $cmd"
+            echo "PATH: $PATH"
+            exit 1
+          fi
           zsh -lc '
             ms_path=$(command -v maintain-system 2>/dev/null || true)
             [[ -n "$ms_path" ]]
