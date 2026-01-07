@@ -110,7 +110,7 @@ versions  # Display versions of all tools
 
 ### Nix Maintenance (macOS)
 
-Nix maintenance is integrated: `update` handles profile/env updates, store cleanup, CLI upgrade checks (manual command), and compaudit fixes. `verify` shows daemon status and package counts.
+Nix maintenance is integrated: `update` handles profile/env updates, store cleanup, CLI upgrade checks (manual command), and compaudit fixes. `verify` shows daemon status (running/stopped). `versions` shows package counts.
 
 ### Prerequisites
 
