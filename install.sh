@@ -237,7 +237,7 @@ setup_zprofile_path_cleanup() {
 
 # ================================ FINAL PATH CLEANUP (FOR .ZPROFILE) =======================
 # This must be at the very end of .zprofile to fix PATH order after all tools have loaded
-# Ensures Homebrew paths come before /usr/bin
+# Ensures Homebrew paths come before /usr/bin and ~/.local/bin is included
 # Managed by macOS Development Environment Setup
 _detect_brew_prefix_zprofile() {
   if [[ -d /opt/homebrew ]]; then
@@ -249,15 +249,27 @@ _detect_brew_prefix_zprofile() {
   fi
 }
 
+# Ensure ~/.local/bin (or XDG_DATA_HOME/../bin) is in PATH
+local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
+[[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+
 HOMEBREW_PREFIX="$(_detect_brew_prefix_zprofile)"
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
   # Remove Homebrew paths from current PATH temporarily
   # Suppress all output to avoid Powerlevel10k instant prompt warnings
   # Use command grouping to avoid variable output
   {
-    cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -v "^$HOMEBREW_PREFIX/bin$" | grep -v "^$HOMEBREW_PREFIX/sbin$" | tr '\n' ':' | sed 's/:$//' 2>/dev/null)
-    # Rebuild PATH with Homebrew first, then others, then system paths
-    export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$cleaned_path"
+    cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -v "^$HOMEBREW_PREFIX/bin$" | grep -v "^$HOMEBREW_PREFIX/sbin$" | grep -v "^$local_bin$" | tr '\n' ':' | sed 's/:$//' 2>/dev/null)
+    # Rebuild PATH with Homebrew first, then ~/.local/bin, then others, then system paths
+    export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$local_bin:$cleaned_path"
+  } >/dev/null 2>&1
+else
+  # No Homebrew, just ensure ~/.local/bin is in PATH
+  {
+    case ":$PATH:" in
+      *":$local_bin:"*) ;;
+      *) export PATH="$local_bin:$PATH" ;;
+    esac
   } >/dev/null 2>&1
 fi
 ZPROFILE_EOF
