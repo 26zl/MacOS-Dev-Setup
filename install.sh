@@ -176,15 +176,27 @@ setup_maintain_system() {
   # Get the directory where this script is located
   local script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
   
-      if [[ -f "$script_dir/maintain-system.sh" ]]; then
-        cp "$script_dir/maintain-system.sh" "$local_bin/maintain-system"
-        chmod +x "$local_bin/maintain-system"
-        # Normalize path for display (remove ../ if present)
-        local display_path="$local_bin/maintain-system"
-        [[ "$display_path" == *"/../"* ]] && display_path="$(cd "$local_bin" && pwd)/maintain-system"
-        echo "${GREEN}✅ maintain-system script installed to $display_path${NC}"
+  if [[ -f "$script_dir/maintain-system.sh" ]]; then
+    cp "$script_dir/maintain-system.sh" "$local_bin/maintain-system"
+    chmod +x "$local_bin/maintain-system"
+    
+    # Verify installation
+    if [[ -x "$local_bin/maintain-system" ]]; then
+      # Normalize path for display (remove ../ if present)
+      local display_path="$local_bin/maintain-system"
+      [[ "$display_path" == *"/../"* ]] && display_path="$(cd "$local_bin" && pwd)/maintain-system"
+      echo "${GREEN}✅ maintain-system script installed to $display_path${NC}"
+      echo "  Resulting maintain-system location: $local_bin/maintain-system"
+      ls -la "$local_bin/maintain-system" || true
+    else
+      echo "${RED}❌ Error: maintain-system was copied but is not executable${NC}"
+      exit 1
+    fi
   else
     echo "${RED}❌ Error: maintain-system.sh not found in $script_dir${NC}"
+    echo "  Looking for: $script_dir/maintain-system.sh"
+    echo "  Current directory: $(pwd)"
+    ls -la "$script_dir/" | head -10 || true
     exit 1
   fi
 }

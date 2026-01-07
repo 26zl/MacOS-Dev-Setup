@@ -20,6 +20,50 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Quick test - Verify required files exist
+        run: |
+          echo "=== Quick Test - Verifying required files ==="
+          
+          # Check for required files
+          required_files=(
+            "install.sh"
+            "zsh.sh"
+            "maintain-system.sh"
+            "scripts/nix-macos-maintenance.sh"
+          )
+          
+          missing_files=()
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              missing_files+=("$file")
+              echo "❌ Missing: $file"
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+          
+          if [[ ${#missing_files[@]} -gt 0 ]]; then
+            echo ""
+            echo "ERROR: Missing required files:"
+            printf '  - %s\n' "${missing_files[@]}"
+            exit 1
+          fi
+          
+          # Check file permissions
+          echo ""
+          echo "=== Checking file permissions ==="
+          chmod +x install.sh maintain-system.sh zsh.sh 2>/dev/null || true
+          
+          # Test syntax
+          echo ""
+          echo "=== Testing syntax ==="
+          zsh -n install.sh && echo "✅ install.sh syntax OK" || { echo "❌ install.sh syntax error"; exit 1; }
+          zsh -n zsh.sh && echo "✅ zsh.sh syntax OK" || { echo "❌ zsh.sh syntax error"; exit 1; }
+          zsh -n maintain-system.sh && echo "✅ maintain-system.sh syntax OK" || { echo "❌ maintain-system.sh syntax error"; exit 1; }
+          
+          echo ""
+          echo "✅ All required files present and syntax valid"
+
       - name: Prepare fresh user home
         run: |
           fresh_home="$(mktemp -d)"
@@ -37,7 +81,8 @@ jobs:
           echo "HOME=$HOME"
           echo "XDG_DATA_HOME=${XDG_DATA_HOME:-not set}"
           export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-          chmod +x install.sh maintain-system.sh
+          # Files should already be executable from quick test step, but ensure they are
+          chmod +x install.sh maintain-system.sh zsh.sh 2>/dev/null || true
           # Run install.sh and capture output
           ./install.sh 2>&1 | tee install.log || true
           echo ""
@@ -92,7 +137,28 @@ jobs:
           cmp -s zsh.sh "$HOME/.zshrc" || { echo "zsh.sh was not installed to ~/.zshrc as expected"; exit 1; }
           grep -q "FINAL PATH CLEANUP (FOR .ZPROFILE)" "$HOME/.zprofile" || { echo "Missing PATH cleanup block in ~/.zprofile"; exit 1; }
           grep -q "maintain_system_bin" "$HOME/.zshrc" || { echo "Missing maintain_system_bin in ~/.zshrc"; exit 1; }
-          grep -q "alias update=" "$HOME/.zshrc" || { echo "Missing update alias in ~/.zshrc"; exit 1; }
+          
+          # Check if alias will be created (maintain-system must exist and be executable)
+          echo "Checking if maintain-system exists for alias creation..."
+          local_bin_1="$HOME/.local/bin/maintain-system"
+          local_bin_2=""
+          if [[ -n "${XDG_DATA_HOME:-}" ]]; then
+            local_bin_2="${XDG_DATA_HOME}/../bin/maintain-system"
+          fi
+          
+          if [[ -x "$local_bin_1" ]]; then
+            echo "✅ maintain-system found at $local_bin_1 (executable)"
+          elif [[ -n "$local_bin_2" && -x "$local_bin_2" ]]; then
+            echo "✅ maintain-system found at $local_bin_2 (executable)"
+          else
+            echo "⚠️  maintain-system not found or not executable - alias will not be created"
+            echo "   Checked: $local_bin_1"
+            [[ -n "$local_bin_2" ]] && echo "   Checked: $local_bin_2"
+          fi
+          
+          # The alias is conditional in zsh.sh, so we check if the condition would be met
+          # If maintain-system exists, the alias should be created when zsh loads
+          grep -q "alias update=" "$HOME/.zshrc" && echo "✅ update alias definition found in ~/.zshrc" || echo "⚠️  update alias definition not found (may be conditional)"
           grep -q "powerlevel10k/powerlevel10k" "$HOME/.zshrc" || { echo "Missing Powerlevel10k theme in ~/.zshrc"; exit 1; }
           grep -q "oh-my-zsh.sh" "$HOME/.zshrc" || { echo "Missing Oh My Zsh source line in ~/.zshrc"; exit 1; }
 
@@ -106,13 +172,24 @@ jobs:
           
           # Validate update alias
           echo "Validating update alias..."
-          alias_value="$(zsh -lc 'print -r -- ${aliases[update]:-}')" || { echo "Failed to read update alias"; exit 1; }
-          if [[ -z "$alias_value" ]]; then
+          alias_tmp="/tmp/update-alias.$$"
+          if ! zsh -lc 'alias update' > "$alias_tmp" 2>/dev/null; then
             echo "ERROR: update alias not defined"
             echo "Available aliases:"
             zsh -lc 'alias' | grep -E "update|verify|versions" || echo "  none found"
+            rm -f "$alias_tmp"
             exit 1
           fi
+          
+          alias_line=""
+          IFS= read -r alias_line < "$alias_tmp" || true
+          rm -f "$alias_tmp"
+          
+          alias_value="${alias_line#update=}"
+          alias_value="${alias_value#\'}"
+          alias_value="${alias_value#\"}"
+          alias_value="${alias_value%\'}"
+          alias_value="${alias_value%\"}"
           
           cmd="${alias_value%% *}"
           echo "Alias command: $cmd"
@@ -124,8 +201,12 @@ jobs:
           if [[ -x "$cmd" ]]; then
             echo "SUCCESS: update alias points to executable: $cmd"
           elif command -v "$cmd" >/dev/null 2>&1; then
-            cmd_path=$(command -v "$cmd")
-            if [[ -x "$cmd_path" ]]; then
+            cmd_tmp="/tmp/update-cmd.$$"
+            command -v "$cmd" > "$cmd_tmp" 2>/dev/null || true
+            cmd_path=""
+            IFS= read -r cmd_path < "$cmd_tmp" || true
+            rm -f "$cmd_tmp"
+            if [[ -n "$cmd_path" && -x "$cmd_path" ]]; then
               echo "SUCCESS: update alias command found in PATH and executable: $cmd_path"
             else
               echo "ERROR: update alias command found in PATH but not executable: $cmd_path"
@@ -176,9 +257,3 @@ jobs:
               print("Update did not report completion")
               sys.exit(1)
           PYTHON_SCRIPT
-
-      - name: Test zsh.sh syntax
-        run: |
-          echo "Testing zsh.sh syntax..."
-          chmod +x zsh.sh
-          zsh -n zsh.sh && echo "✅ zsh.sh syntax is valid" || exit 1
