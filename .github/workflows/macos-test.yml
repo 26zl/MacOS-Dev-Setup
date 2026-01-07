@@ -170,53 +170,21 @@ jobs:
           zsh -lc 'command -v brew >/dev/null' || { echo "Homebrew not available in login shell"; exit 1; }
           zsh -lc 'command -v fzf >/dev/null' || { echo "fzf not available in login shell"; exit 1; }
           
-          # Validate update alias
-          echo "Validating update alias..."
-          alias_tmp="/tmp/update-alias.$$"
-          if ! zsh -lc 'alias update' > "$alias_tmp" 2>/dev/null; then
-            echo "ERROR: update alias not defined"
-            echo "Available aliases:"
-            zsh -lc 'alias' | grep -E "update|verify|versions" || echo "  none found"
-            rm -f "$alias_tmp"
-            exit 1
-          fi
-          
-          alias_line=""
-          IFS= read -r alias_line < "$alias_tmp" || true
-          rm -f "$alias_tmp"
-          
-          alias_value="${alias_line#update=}"
-          alias_value="${alias_value#\'}"
-          alias_value="${alias_value#\"}"
-          alias_value="${alias_value%\'}"
-          alias_value="${alias_value%\"}"
-          
-          cmd="${alias_value%% *}"
-          echo "Alias command: $cmd"
-          if [[ -z "$cmd" ]]; then
-            echo "ERROR: update alias has no command"
-            exit 1
-          fi
-          
-          if [[ -x "$cmd" ]]; then
-            echo "SUCCESS: update alias points to executable: $cmd"
-          elif command -v "$cmd" >/dev/null 2>&1; then
-            cmd_tmp="/tmp/update-cmd.$$"
-            command -v "$cmd" > "$cmd_tmp" 2>/dev/null || true
-            cmd_path=""
-            IFS= read -r cmd_path < "$cmd_tmp" || true
-            rm -f "$cmd_tmp"
-            if [[ -n "$cmd_path" && -x "$cmd_path" ]]; then
-              echo "SUCCESS: update alias command found in PATH and executable: $cmd_path"
-            else
-              echo "ERROR: update alias command found in PATH but not executable: $cmd_path"
+          # Validate update/verify/versions aliases after sourcing ~/.zshrc
+          echo "Validating update aliases..."
+          for alias_name in update verify versions; do
+            if ! zsh -lc "source ~/.zshrc; alias $alias_name >/dev/null 2>&1"; then
+              echo "ERROR: $alias_name alias not defined after sourcing ~/.zshrc"
+              echo "Available aliases:"
+              zsh -lc 'source ~/.zshrc; alias' | grep -E "update|verify|versions" || echo "  none found"
               exit 1
             fi
-          else
-            echo "ERROR: update alias command not found or not executable: $cmd"
-            echo "PATH: $PATH"
-            exit 1
-          fi
+            if ! zsh -lc "source ~/.zshrc; alias $alias_name | grep -q 'maintain-system'"; then
+              echo "ERROR: $alias_name alias does not reference maintain-system"
+              zsh -lc "source ~/.zshrc; alias $alias_name" || true
+              exit 1
+            fi
+          done
           zsh -lc '
             ms_path=$(command -v maintain-system 2>/dev/null || true)
             [[ -n "$ms_path" ]]
@@ -229,21 +197,21 @@ jobs:
         run: |
           export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
           echo "Validating aliases in login shell..."
-          zsh -lc 'type update >/dev/null'
-          zsh -lc 'type verify >/dev/null'
-          zsh -lc 'type versions >/dev/null'
+          zsh -lc 'source ~/.zshrc; type update >/dev/null'
+          zsh -lc 'source ~/.zshrc; type verify >/dev/null'
+          zsh -lc 'source ~/.zshrc; type versions >/dev/null'
           echo "Running verify..."
-          zsh -lc 'verify' 2>&1 | head -20
+          zsh -lc 'source ~/.zshrc; verify' 2>&1 | head -20
           echo ""
           echo "Running versions..."
-          zsh -lc 'versions' 2>&1 | head -20
+          zsh -lc 'source ~/.zshrc; versions' 2>&1 | head -20
           echo ""
           echo "Running update..."
           python3 - <<'PYTHON_SCRIPT'
           import subprocess
           import sys
 
-          cmd = ["zsh", "-lc", "update"]
+          cmd = ["zsh", "-lc", "source ~/.zshrc; update"]
           try:
               result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1800)
               output = result.stdout
