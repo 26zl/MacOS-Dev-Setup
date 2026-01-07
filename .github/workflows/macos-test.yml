@@ -17,12 +17,12 @@ jobs:
       NONINTERACTIVE: "1"
       CI: "1"
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup and validation
         run: |
           echo "=== Setup and Validation ==="
-          
-          # Checkout code
-          echo "Checking out code..."
           
           # Check for required files
           echo ""
@@ -78,9 +78,6 @@ jobs:
           echo "NONINTERACTIVE=1" >> "$GITHUB_ENV"
           mkdir -p "$fresh_home/.local/share" "$fresh_home/.config" "$fresh_home/.cache"
           echo "Fresh home directory prepared: $fresh_home"
-
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Installation and validation
         run: |
