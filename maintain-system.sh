@@ -50,6 +50,18 @@ _detect_brew_prefix() {
   fi
 }
 
+_ensure_system_path() {
+  local required_paths=(/usr/bin /bin /usr/sbin /sbin)
+  local path_entry=""
+  for path_entry in "${required_paths[@]}"; do
+    case ":$PATH:" in
+      *":$path_entry:"*) ;;
+      *) PATH="$path_entry:$PATH" ;;
+    esac
+  done
+  export PATH
+}
+
 _is_disabled() {
   local value="${1:-}"
   case "${value:l}" in
@@ -833,6 +845,7 @@ _cargo_update_packages() {
 # ================================ UPDATE ===================================
 
 update() {
+  _ensure_system_path
   echo "==> Update started $(date)"
   
   # Check macOS compatibility
@@ -1262,6 +1275,7 @@ update() {
     
     # Upgrade global packages with better error handling (skip if symlink to Homebrew)
     if [[ -z "$pyenv_version_dir" || ! -L "$pyenv_version_dir" ]]; then
+      _ensure_system_path
       local outdated_packages
       outdated_packages="$("$pybin" -m pip list --outdated --format=freeze 2>/dev/null | cut -d= -f1 || true)"
       if [[ -n "$outdated_packages" ]]; then
@@ -1776,12 +1790,14 @@ update() {
   fi
 
   hash -r 2>/dev/null || true
+  _ensure_system_path
   echo "==> Update finished $(date)"
 }
 
 # ================================ VERIFY ===================================
 
 verify() {
+  _ensure_system_path
   echo "==> Verify $(date)"
   local ok warn miss
   ok()   { printf "%-15s OK (%s)\n" "$1" "$2"; }
@@ -2024,6 +2040,7 @@ verify() {
 # ================================ VERSIONS ===================================
 
 versions() {
+  _ensure_system_path
   echo "================== TOOL VERSIONS =================="
   command -v ruby >/dev/null 2>&1 && echo "Ruby ........... $(ruby -v)" || echo "Ruby ........... not installed"
   command -v gem  >/dev/null 2>&1 && echo "Gem ............ $(gem -v)" || true
