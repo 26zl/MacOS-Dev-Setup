@@ -31,25 +31,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Check if tag exists (for workflow_run)
         id: check_tag
         if: github.event_name == 'workflow_run'
         run: |
-          # Checkout the commit that triggered the workflow
-          git fetch --tags
+          # Fetch all tags to ensure we have them
+          git fetch --tags --force
+          
+          # Get the commit SHA that triggered the macOS Test workflow
           COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+          echo "Checking commit: $COMMIT_SHA"
+          
+          # Checkout the specific commit
           git checkout "$COMMIT_SHA"
           
-          # Check if this commit has a tag
+          # List all tags to debug
+          echo "Available tags:"
+          git tag -l | head -10
+          
+          # Check if this commit has a tag (try multiple methods)
+          TAG=""
           if git describe --tags --exact-match "$COMMIT_SHA" 2>/dev/null; then
             TAG=$(git describe --tags --exact-match "$COMMIT_SHA")
+          elif git tag --points-at "$COMMIT_SHA" | head -1; then
+            TAG=$(git tag --points-at "$COMMIT_SHA" | head -1)
+          fi
+          
+          if [ -n "$TAG" ]; then
             echo "tag=$TAG" >> $GITHUB_OUTPUT
             echo "has_tag=true" >> $GITHUB_OUTPUT
             echo "Found tag: $TAG"
           else
             echo "has_tag=false" >> $GITHUB_OUTPUT
-            echo "No tag found for commit $COMMIT_SHA - skipping release"
+            echo "No tag found for commit $COMMIT_SHA"
+            echo "Commit message: $(git log -1 --format=%s $COMMIT_SHA)"
+            echo "All tags pointing to this commit: $(git tag --points-at $COMMIT_SHA || echo 'none')"
           fi
 
       - name: Get version
