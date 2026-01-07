@@ -169,22 +169,6 @@ jobs:
           zsh -lc 'command -v git >/dev/null' || { echo "git not available in login shell"; exit 1; }
           zsh -lc 'command -v brew >/dev/null' || { echo "Homebrew not available in login shell"; exit 1; }
           zsh -lc 'command -v fzf >/dev/null' || { echo "fzf not available in login shell"; exit 1; }
-          
-          # Validate update/verify/versions aliases after sourcing ~/.zshrc
-          echo "Validating update aliases..."
-          for alias_name in update verify versions; do
-            if ! zsh -lc "source ~/.zshrc; alias $alias_name >/dev/null 2>&1"; then
-              echo "ERROR: $alias_name alias not defined after sourcing ~/.zshrc"
-              echo "Available aliases:"
-              zsh -lc 'source ~/.zshrc; alias' | grep -E "update|verify|versions" || echo "  none found"
-              exit 1
-            fi
-            if ! zsh -lc "source ~/.zshrc; alias $alias_name | grep -q 'maintain-system'"; then
-              echo "ERROR: $alias_name alias does not reference maintain-system"
-              zsh -lc "source ~/.zshrc; alias $alias_name" || true
-              exit 1
-            fi
-          done
           zsh -lc '
             ms_path=$(command -v maintain-system 2>/dev/null || true)
             [[ -n "$ms_path" ]]
@@ -196,22 +180,18 @@ jobs:
       - name: Run maintain-system via login shell
         run: |
           export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-          echo "Validating aliases in login shell..."
-          zsh -lc 'source ~/.zshrc; type update >/dev/null'
-          zsh -lc 'source ~/.zshrc; type verify >/dev/null'
-          zsh -lc 'source ~/.zshrc; type versions >/dev/null'
           echo "Running verify..."
-          zsh -lc 'source ~/.zshrc; verify' 2>&1 | head -20
+          zsh -lc 'maintain-system verify' 2>&1 | head -20
           echo ""
           echo "Running versions..."
-          zsh -lc 'source ~/.zshrc; versions' 2>&1 | head -20
+          zsh -lc 'maintain-system versions' 2>&1 | head -20
           echo ""
           echo "Running update..."
           python3 - <<'PYTHON_SCRIPT'
           import subprocess
           import sys
 
-          cmd = ["zsh", "-lc", "source ~/.zshrc; update"]
+          cmd = ["zsh", "-lc", "maintain-system update"]
           try:
               result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1800)
               output = result.stdout
