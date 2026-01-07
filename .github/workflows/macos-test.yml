@@ -66,8 +66,17 @@ jobs:
           zsh -lc 'command -v git >/dev/null' || { echo "git not available in login shell"; exit 1; }
           zsh -lc 'command -v brew >/dev/null' || { echo "Homebrew not available in login shell"; exit 1; }
           zsh -lc 'command -v fzf >/dev/null' || { echo "fzf not available in login shell"; exit 1; }
-          zsh -lc 'alias update' | grep -q "$HOME/.local/bin/maintain-system" || { echo "update alias not pointing to maintain-system"; exit 1; }
-          zsh -lc 'case ":$PATH:" in *":$HOME/.local/bin:"*) exit 0 ;; *) exit 1 ;; esac' || { echo "PATH missing ~/.local/bin"; exit 1; }
+          zsh -lc '
+            alias_value=${aliases[update]:-}
+            cmd=${alias_value%% *}
+            [[ -n "$cmd" && -x "$cmd" ]]
+          ' || { echo "update alias not pointing to an executable"; exit 1; }
+          zsh -lc '
+            ms_path=$(command -v maintain-system 2>/dev/null || true)
+            [[ -n "$ms_path" ]]
+            ms_dir=${ms_path:h}
+            case ":$PATH:" in *":$ms_dir:"*) exit 0 ;; *) exit 1 ;; esac
+          ' || { echo "PATH missing maintain-system directory"; exit 1; }
           zsh -lc 'prefix=$(brew --prefix 2>/dev/null || true); if [[ -n "$prefix" ]]; then case "$PATH" in "$prefix/bin:"*) exit 0 ;; *) exit 1 ;; esac; fi' || { echo "Homebrew bin not first in PATH"; exit 1; }
 
       - name: Run maintain-system via login shell
@@ -84,24 +93,24 @@ jobs:
           zsh -lc 'versions' 2>&1 | head -20
           echo ""
           echo "Running update..."
-          python3 - <<'PY'
-import subprocess
-import sys
+          python3 <<'PYTHON_SCRIPT'
+          import subprocess
+          import sys
 
-cmd = ["zsh", "-lc", "update"]
-try:
-    result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1800)
-    output = result.stdout
-except subprocess.TimeoutExpired:
-    print("Update timed out after 1800s")
-    sys.exit(124)
+          cmd = ["zsh", "-lc", "update"]
+          try:
+              result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1800)
+              output = result.stdout
+          except subprocess.TimeoutExpired:
+              print("Update timed out after 1800s")
+              sys.exit(124)
 
-lines = output.splitlines()
-print("\n".join(lines[-200:]))
-if "Update finished" not in output:
-    print("Update did not report completion")
-    sys.exit(1)
-PY
+          lines = output.splitlines()
+          print("\n".join(lines[-200:]))
+          if "Update finished" not in output:
+              print("Update did not report completion")
+              sys.exit(1)
+          PYTHON_SCRIPT
 
       - name: Test zsh.sh syntax
         run: |

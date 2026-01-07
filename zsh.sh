@@ -194,8 +194,17 @@ if command -v pyenv >/dev/null 2>&1; then
         if [[ -f "$python_dir/python3" ]]; then
           found_python="$python_dir/python3"
         # Then try to find highest python3.x version dynamically
-        elif command -v ls >/dev/null 2>&1; then
-          found_python=$(ls -1 "$python_dir"/python3.* 2>/dev/null | grep -E 'python3\.[0-9]+$' | sort -V | tail -n1 || echo "")
+        else
+          # Use globbing to find python3.x versions
+          local python_versions=()
+          for f in "$python_dir"/python3.[0-9]*; do
+            [[ -f "$f" && "$f" =~ python3\.[0-9]+$ ]] && python_versions+=("$f")
+          done
+          if [[ ${#python_versions[@]} -gt 0 ]]; then
+            # Sort versions and get the highest
+            IFS=$'\n' sorted=($(sort -V <<<"${python_versions[*]}"))
+            found_python="${sorted[-1]}"
+          fi
         fi
         # Fallback to python if nothing else found
         if [[ -z "$found_python" && -f "$python_dir/python" ]]; then
