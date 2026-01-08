@@ -21,19 +21,19 @@ readonly NIX_MARKER_END="# END Nix macOS Maintenance Hook"
 
 # Logging functions
 _log_info() {
-    echo -e "${BLUE}ℹ${NC} $*"
+    echo -e "${BLUE}$*${NC}"
 }
 
 _log_success() {
-    echo -e "${GREEN}✅${NC} $*"
+    echo -e "${GREEN}$*${NC}"
 }
 
 _log_warning() {
-    echo -e "${YELLOW}⚠${NC} $*"
+    echo -e "${YELLOW}$*${NC}"
 }
 
 _log_error() {
-    echo -e "${RED}❌${NC} $*" >&2
+    echo -e "${RED}$*${NC}" >&2
 }
 
 _log_section() {
@@ -315,7 +315,7 @@ cmd_preview_nix_upgrade() {
     if [[ "$current_major" -gt "$target_major" ]] || \
        [[ "$current_major" -eq "$target_major" && "$current_minor" -gt "$target_minor" ]] || \
        [[ "$current_major" -eq "$target_major" && "$current_minor" -eq "$target_minor" && "$current_patch" -gt "$target_patch" ]]; then
-        _log_warning "⚠️  DETTE ER EN NEDGRADERING!"
+        _log_warning "THIS IS A DOWNGRADE!"
         _log_warning "Current: $current_version -> Target: $target_version"
         _log_info "nix upgrade-nix follows nixpkgs fallback and may be older than installed Nix"
         _log_info "Do NOT run this upgrade automatically"
@@ -403,16 +403,16 @@ cmd_update() {
                 # Check if it's a downgrade
                 local is_downgrade=false
                 if [[ "$current_major" -gt "$target_major" ]] || \
-                   ([[ "$current_major" -eq "$target_major" ]] && [[ "$current_minor" -gt "$target_minor" ]]) || \
-                   ([[ "$current_major" -eq "$target_major" ]] && [[ "$current_minor" -eq "$target_minor" ]] && [[ "$current_patch" -gt "$target_patch" ]]); then
+                   { [[ "$current_major" -eq "$target_major" ]] && [[ "$current_minor" -gt "$target_minor" ]]; } || \
+                   { [[ "$current_major" -eq "$target_major" ]] && [[ "$current_minor" -eq "$target_minor" ]] && [[ "$current_patch" -gt "$target_patch" ]]; }; then
                     is_downgrade=true
                 fi
                 
                 if [[ "$is_downgrade" == "true" ]]; then
-                    _log_warning "⚠️  Nix CLI upgrade skipped: would downgrade ($current_nix_version -> $target_version)"
+                    _log_warning "Nix CLI upgrade skipped: would downgrade ($current_nix_version -> $target_version)"
                     _log_info "nix upgrade-nix follows nixpkgs fallback and may be older than installed Nix"
                 else
-                    _log_info "ℹ️  Nix CLI upgrade available: $current_nix_version -> $target_version"
+                    _log_info "Nix CLI upgrade available: $current_nix_version -> $target_version"
                     _log_info "To upgrade: sudo -H nix upgrade-nix --profile /nix/var/nix/profiles/default"
                 fi
             elif [[ -z "$target_version" ]]; then
@@ -596,4 +596,3 @@ main() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi
-

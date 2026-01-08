@@ -1,7 +1,11 @@
 #!/usr/bin/env zsh
 # Quick test script for the project
 
-echo "=== Quick Test ==="
+# Colors for output
+readonly GREEN='\033[0;32m'
+readonly NC='\033[0m' # No Color
+
+echo "${GREEN}=== Quick Test ===${NC}"
 echo "1. Testing syntax..."
 zsh -n install.sh && echo "✅ install.sh OK" || echo "❌ install.sh FAILED"
 zsh -n zsh.sh && echo "✅ zsh.sh OK" || echo "❌ zsh.sh FAILED"
@@ -40,4 +44,4 @@ else
 fi
 
 echo ""
-echo "=== Test Complete ==="
+echo "${GREEN}=== Test Complete ===${NC}"
