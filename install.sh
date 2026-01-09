@@ -26,9 +26,11 @@ _ask_user() {
   local prompt="$1"
   local default="${2:-N}"
   
-  # Skip prompts in non-interactive mode
+  # In CI/non-interactive mode, automatically answer "yes" to all prompts
+  # This simulates a user answering "yes" to everything
   if [[ -n "${NONINTERACTIVE:-}" ]] || [[ -n "${CI:-}" ]]; then
-    return 1
+    echo "$prompt [Auto: yes]"
+    return 0
   fi
   
   echo -n "$prompt "

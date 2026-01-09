@@ -110,14 +110,58 @@ jobs:
           echo "=== Installation log summary ==="
           tail -100 install.log || true
           
-          # Validate that interactive prompts are skipped in non-interactive mode
+          # Validate that interactive prompts are auto-answered in CI mode
           echo ""
-          echo "=== Validating non-interactive behavior ==="
+          echo "=== Validating CI mode behavior ==="
           if grep -qiE "(Install Homebrew\?|Install MacPorts\?|Install mas|Install Nix\?)" install.log; then
-            echo "WARNING: Interactive prompts found in non-interactive mode"
-            echo "This may be OK if prompts are shown but auto-skipped"
+            echo "Interactive prompts found - checking if they were auto-answered..."
+            if grep -qiE "\[Auto: yes\]" install.log; then
+              echo "✅ Interactive prompts correctly auto-answered in CI mode"
+            else
+              echo "WARNING: Prompts found but may not be auto-answered"
+            fi
           else
-            echo "Interactive prompts correctly skipped in non-interactive mode"
+            echo "No interactive prompts found (may be OK if all tools already installed)"
+          fi
+          
+          # Verify that installation attempts were made in CI
+          echo ""
+          echo "=== Verifying installation attempts in CI ==="
+          if grep -qiE "(Installing Homebrew|Installing mas|Installing MacPorts|Installing Nix)" install.log; then
+            echo "✅ Installation attempts detected in CI mode"
+          else
+            echo "INFO: No installation attempts found (may be OK if all tools already installed)"
+          fi
+          
+          # Verify that package managers are actually installed/available after install.sh
+          echo ""
+          echo "=== Verifying package manager installations ==="
+          if command -v brew >/dev/null 2>&1; then
+            echo "✅ Homebrew is installed and available"
+            brew --version || echo "WARNING: Homebrew installed but version check failed"
+          else
+            echo "INFO: Homebrew not installed (may be OK if installation was skipped or failed)"
+          fi
+          
+          if command -v mas >/dev/null 2>&1; then
+            echo "✅ mas is installed and available"
+            mas version || echo "WARNING: mas installed but version check failed"
+          else
+            echo "INFO: mas not installed (may be OK if Homebrew not available or installation was skipped)"
+          fi
+          
+          if command -v port >/dev/null 2>&1; then
+            echo "✅ MacPorts is installed and available"
+            port version || echo "WARNING: MacPorts installed but version check failed"
+          else
+            echo "INFO: MacPorts not installed (may be OK if installation was skipped or requires sudo)"
+          fi
+          
+          if command -v nix >/dev/null 2>&1 || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
+            echo "✅ Nix is installed and available"
+            nix --version 2>/dev/null || echo "WARNING: Nix installed but version check failed"
+          else
+            echo "INFO: Nix not installed (may be OK if installation was skipped or requires sudo)"
           fi
           
           # Validate installation outputs
@@ -394,13 +438,21 @@ jobs:
           echo ""
           echo "Testing mas update/upgrade functionality..."
           if command -v mas >/dev/null 2>&1; then
-            if grep -qE "mas upgrade.*mas update|sudo mas upgrade" maintain-system.sh; then
-              echo "mas upgrade and update commands found in maintain-system.sh"
+            if grep -qE "mas upgrade.*mas update" maintain-system.sh && ! grep -q "sudo mas upgrade" maintain-system.sh; then
+              echo "✅ mas upgrade and update commands found in maintain-system.sh (without sudo)"
             else
-              echo "WARNING: mas upgrade/update commands not found in maintain-system.sh"
+              echo "WARNING: mas upgrade/update commands may not be correct in maintain-system.sh"
+            fi
+            
+            # Test that mas actually works
+            if mas version >/dev/null 2>&1; then
+              echo "✅ mas command works correctly"
+              mas list 2>/dev/null | head -5 || echo "INFO: mas list may require App Store sign-in"
+            else
+              echo "WARNING: mas command may not work correctly"
             fi
           else
-            echo "mas not installed (this is OK)"
+            echo "INFO: mas not installed (this is OK if Homebrew not available or installation was skipped)"
           fi
           
           # Test Homebrew skip behavior
@@ -438,6 +490,46 @@ jobs:
           else
             echo "WARNING: Nix skip message not found in maintain-system.sh"
           fi
+          
+          # Test that installed package managers actually work with maintain-system
+          echo ""
+          echo "=== Testing installed package managers with maintain-system ==="
+          zsh -lc '
+            # Test verify command with installed package managers
+            verify_output=$(maintain-system verify 2>&1)
+            
+            if command -v brew >/dev/null 2>&1; then
+              if echo "$verify_output" | grep -qi "Homebrew.*OK\|Homebrew found"; then
+                echo "✅ maintain-system correctly detects Homebrew"
+              else
+                echo "WARNING: maintain-system may not detect Homebrew correctly"
+              fi
+            fi
+            
+            if command -v mas >/dev/null 2>&1; then
+              if echo "$verify_output" | grep -qi "mas.*OK\|mas found"; then
+                echo "✅ maintain-system correctly detects mas"
+              else
+                echo "WARNING: maintain-system may not detect mas correctly"
+              fi
+            fi
+            
+            if command -v port >/dev/null 2>&1; then
+              if echo "$verify_output" | grep -qi "MacPorts.*OK\|MacPorts found"; then
+                echo "✅ maintain-system correctly detects MacPorts"
+              else
+                echo "WARNING: maintain-system may not detect MacPorts correctly"
+              fi
+            fi
+            
+            if command -v nix >/dev/null 2>&1 || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
+              if echo "$verify_output" | grep -qi "Nix.*OK\|Nix found"; then
+                echo "✅ maintain-system correctly detects Nix"
+              else
+                echo "WARNING: maintain-system may not detect Nix correctly"
+              fi
+            fi
+          ' || exit 1
           
           echo ""
           echo "Package manager testing complete"
@@ -488,6 +580,33 @@ jobs:
               print("Update correctly shows skip messages for missing tools")
           else:
               print("Update skip messages not found (may be OK if all tools are installed)")
+          
+          # Test that update actually works with installed package managers
+          import shutil
+          if shutil.which("brew"):
+              if "Homebrew" in output or "brew" in output.lower():
+                  print("Update command interacts with Homebrew")
+              else:
+                  print("WARNING: Update may not interact with Homebrew")
+          
+          if shutil.which("mas"):
+              if "mas" in output.lower() or "App Store" in output:
+                  print("Update command interacts with mas")
+              else:
+                  print("WARNING: Update may not interact with mas")
+          
+          if shutil.which("port"):
+              if "MacPorts" in output or "port" in output.lower():
+                  print("Update command interacts with MacPorts")
+              else:
+                  print("WARNING: Update may not interact with MacPorts")
+          
+          nix_path = Path("/nix/var/nix/profiles/default/bin/nix")
+          if shutil.which("nix") or nix_path.exists():
+              if "Nix" in output or "nix" in output.lower():
+                  print("Update command interacts with Nix")
+              else:
+                  print("WARNING: Update may not interact with Nix")
           PYTHON_SCRIPT
           
           # Test system Python/Ruby protection
