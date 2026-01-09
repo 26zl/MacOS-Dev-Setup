@@ -501,7 +501,7 @@ install_nix() {
     if command -v nix >/dev/null 2>&1 || [[ -d /nix ]] || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
       echo ""
       echo "${GREEN}✅ Nix installed successfully${NC}"
-      echo "  ${BLUE}INFO:${NC} Restart your terminal or run: source ~/.zprofile"
+      echo "  ${BLUE}INFO:${NC} Restart your terminal or run: reload"
       echo "  ${BLUE}INFO:${NC} Then run: ./scripts/nix-macos-maintenance.sh ensure-path"
       return 0
     elif [[ $install_exit -eq 0 ]]; then
@@ -509,7 +509,7 @@ install_nix() {
       echo ""
       echo "${YELLOW}⚠️  Nix installer completed, but Nix not found in PATH${NC}"
       echo "  ${BLUE}INFO:${NC} This may be normal - try restarting your terminal"
-      echo "  ${BLUE}INFO:${NC} Or run: source ~/.zprofile"
+      echo "  ${BLUE}INFO:${NC} Or run: reload"
       return 0
     else
       echo ""
@@ -603,6 +603,8 @@ setup_nix_path() {
 # Function to setup PATH cleanup in .zprofile
 setup_zprofile_path_cleanup() {
   echo "${YELLOW}📦 Setting up PATH cleanup in .zprofile...${NC}"
+  echo "  ${BLUE}INFO:${NC} .zprofile is used by login shells to set up PATH"
+  echo "  ${BLUE}INFO:${NC} This ensures Homebrew and other tools are available in all shell sessions"
   
   # Check if PATH cleanup already exists
   if [[ -f "$HOME/.zprofile" ]] && grep -q "FINAL PATH CLEANUP (FOR .ZPROFILE)" "$HOME/.zprofile"; then
@@ -614,6 +616,7 @@ setup_zprofile_path_cleanup() {
   if [[ -f "$HOME/.zprofile" ]]; then
     local zprofile_backup="$HOME/.zprofile.backup.$(date +%Y%m%d_%H%M%S)"
     cp "$HOME/.zprofile" "$zprofile_backup"
+    echo "  ${BLUE}INFO:${NC} Backed up existing .zprofile to $zprofile_backup"
   fi
   
   # Ensure .zprofile exists (create empty file if it doesn't exist)
@@ -860,14 +863,21 @@ main() {
   fi
   echo ""
   echo "Next steps:"
-  echo "  1. Restart your terminal or run: source ~/.zshrc"
-  echo "  2. Run 'p10k configure' to customize your Powerlevel10k theme (optional)"
-  echo "  3. Run 'update' to update all your tools"
+  echo "  1. Run: source ~/.zshrc"
+  echo "     (This loads the 'reload' and 'reloadzsh' aliases and other shell configurations)"
+  echo "  2. Then you can use:"
+  echo "     - reload     : Updates both .zprofile and .zshrc (recommended for full refresh)"
+  echo "     - reloadzsh  : Updates only .zshrc (for quick shell config reload)"
+  echo "  3. Or simply restart your terminal"
+  echo "  4. Run 'p10k configure' to customize your Powerlevel10k theme (optional)"
+  echo "  5. Run 'update' to update all your tools"
   echo ""
   echo "Available commands:"
-  echo "  - update    : Update all tools, package managers, and language runtimes"
-  echo "  - verify    : Check status of all installed tools"
-  echo "  - versions  : Display versions of all tools"
+  echo "  - reload     : Reload both .zprofile and .zshrc (updates PATH and shell config)"
+  echo "  - reloadzsh  : Reload only .zshrc (updates shell config, faster)"
+  echo "  - update     : Update all tools, package managers, and language runtimes"
+  echo "  - verify     : Check status of all installed tools"
+  echo "  - versions   : Display versions of all tools"
   echo ""
   
   # In CI/non-interactive mode, verify that commands are immediately available

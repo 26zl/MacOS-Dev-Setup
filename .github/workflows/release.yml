@@ -158,6 +158,7 @@ jobs:
           echo "Release version: $VERSION"
 
       - name: Create release package
+        id: package
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           PACKAGE_NAME="MacOS-Dev-Setup-${VERSION}"
@@ -196,9 +197,15 @@ jobs:
           # Create checksums
           sha256sum "${PACKAGE_NAME}.zip" > "${PACKAGE_NAME}.zip.sha256"
           
-          echo "package_name=${PACKAGE_NAME}" >> $GITHUB_ENV
-          echo "zip_file=${PACKAGE_NAME}.zip" >> $GITHUB_ENV
-          echo "checksum_file=${PACKAGE_NAME}.zip.sha256" >> $GITHUB_ENV
+          # Set outputs
+          echo "zip_file=${PACKAGE_NAME}.zip" >> $GITHUB_OUTPUT
+          echo "checksum_file=${PACKAGE_NAME}.zip.sha256" >> $GITHUB_OUTPUT
+          
+          # Read checksum content for release notes
+          CHECKSUM_CONTENT=$(cat "${PACKAGE_NAME}.zip.sha256")
+          echo "checksum_content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHECKSUM_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -222,11 +229,11 @@ jobs:
             
             ### Checksums
             ```
-            ${{ env.checksum_file }}
+            ${{ steps.package.outputs.checksum_content }}
             ```
           files: |
-            ${{ env.zip_file }}
-            ${{ env.checksum_file }}
+            ${{ steps.package.outputs.zip_file }}
+            ${{ steps.package.outputs.checksum_file }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -235,5 +242,5 @@ jobs:
         with:
           name: release-package
           path: |
-            ${{ env.zip_file }}
-            ${{ env.checksum_file }}
+            ${{ steps.package.outputs.zip_file }}
+            ${{ steps.package.outputs.checksum_file }}

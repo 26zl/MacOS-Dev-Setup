@@ -1636,10 +1636,11 @@ update() {
     nvm install --lts --latest-npm || true
     nvm alias default 'lts/*' || true
     nvm use default || true
-    if [[ -n "$prev_nvm" && "$prev_nvm" != "system" ]]; then
+    local active_nvm="$(nvm current 2>/dev/null || true)"
+    # Only reinstall packages if we switched to a different version
+    if [[ -n "$prev_nvm" && "$prev_nvm" != "system" && -n "$active_nvm" && "$prev_nvm" != "$active_nvm" ]]; then
       nvm reinstall-packages "$prev_nvm" || true
     fi
-    local active_nvm="$(nvm current 2>/dev/null || true)"
     if [[ -n "$active_nvm" && "$active_nvm" != "system" ]]; then
       if _is_disabled "${MAINTAIN_SYSTEM_CLEAN_NVM:-}"; then
         echo "${GREEN}[nvm]${NC} Cleanup disabled; set MAINTAIN_SYSTEM_CLEAN_NVM=1 or unset to enable"

@@ -299,6 +299,7 @@ fi
 alias myip="curl -s ifconfig.me"
 alias flushdns="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
 alias reloadzsh="source ${ZDOTDIR:-$HOME}/.zshrc"
+alias reload="source ${ZDOTDIR:-$HOME}/.zprofile && source ${ZDOTDIR:-$HOME}/.zshrc"
 if command -v cot >/dev/null 2>&1; then
   alias change="cot ${ZDOTDIR:-$HOME}/.zshrc"
 fi
