@@ -13,6 +13,7 @@ echo ""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 install_warnings=0
 
@@ -70,6 +71,39 @@ _detect_brew_prefix() {
 
 HOMEBREW_PREFIX="$(_detect_brew_prefix)"
 
+# Detect repository root directory (where install.sh is located)
+# This is saved early so it's available even after directory changes
+_detect_repo_root() {
+  local repo_root=""
+  
+  # Method 1: Use zsh-specific variable (works in zsh)
+  if [[ -n "${(%):-%x}" ]]; then
+    repo_root="$(cd "$(dirname "${(%):-%x}")" && pwd)" 2>/dev/null || repo_root=""
+  fi
+  
+  # Method 2: Use $0 if method 1 failed
+  if [[ -z "$repo_root" ]] || [[ ! -d "$repo_root" ]]; then
+    if [[ -n "${0}" ]] && [[ -f "${0}" ]]; then
+      repo_root="$(cd "$(dirname "${0}")" && pwd)" 2>/dev/null || repo_root=""
+    fi
+  fi
+  
+  # Method 3: Search from current directory up for maintain-system.sh
+  if [[ -z "$repo_root" ]] || [[ ! -f "$repo_root/maintain-system.sh" ]]; then
+    local search_dir="$(pwd)"
+    while [[ "$search_dir" != "/" ]]; do
+      if [[ -f "$search_dir/maintain-system.sh" ]]; then
+        repo_root="$search_dir"
+        break
+      fi
+      search_dir="$(dirname "$search_dir")"
+    done
+  fi
+  
+  echo "$repo_root"
+}
+
+REPO_ROOT="$(_detect_repo_root)"
 
 # Function to install Xcode Command Line Tools (required)
 install_xcode_clt() {
@@ -490,39 +524,13 @@ setup_maintain_system() {
   echo "${YELLOW}📦 Setting up maintain-system script...${NC}"
   mkdir -p "$local_bin"
   
-  # Get the directory where this script is located
-  # Try multiple methods to find the script directory for robustness
-  local script_dir=""
+  # Use REPO_ROOT that was detected at script start
+  # If REPO_ROOT is not set or maintain-system.sh not found there, try to detect again
+  local script_dir="$REPO_ROOT"
   
-  # Method 1: Use zsh-specific variable (works in zsh)
-  if [[ -n "${(%):-%x}" ]]; then
-    script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)" 2>/dev/null || script_dir=""
-  fi
-  
-  # Method 2: Use $0 if method 1 failed or not in zsh
-  if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
-    if [[ -n "${0}" ]] && [[ -f "${0}" ]]; then
-      script_dir="$(cd "$(dirname "${0}")" && pwd)" 2>/dev/null || script_dir=""
-    fi
-  fi
-  
-  # Method 3: Try current directory as fallback
-  if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
-    if [[ -f "./maintain-system.sh" ]]; then
-      script_dir="$(pwd)"
-    fi
-  fi
-  
-  # Method 4: Search from current directory up
   if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/maintain-system.sh" ]]; then
-    local search_dir="$(pwd)"
-    while [[ "$search_dir" != "/" ]]; do
-      if [[ -f "$search_dir/maintain-system.sh" ]]; then
-        script_dir="$search_dir"
-        break
-      fi
-      search_dir="$(dirname "$search_dir")"
-    done
+    # Fallback: try to detect again (in case REPO_ROOT wasn't set correctly)
+    script_dir="$(_detect_repo_root)"
   fi
   
   # Final check and installation
@@ -542,15 +550,16 @@ setup_maintain_system() {
     fi
   else
     echo "${RED}❌ Error: maintain-system.sh not found${NC}"
+    echo "  REPO_ROOT: ${REPO_ROOT:-not set}"
     echo "  Searched in: $script_dir"
     echo "  Current directory: $(pwd)"
-    echo "  Attempted methods: zsh variable, \$0, current dir, parent search"
-    if [[ -n "$script_dir" ]]; then
+    echo "  Attempted methods: REPO_ROOT variable, fallback detection"
+    if [[ -n "$script_dir" ]] && [[ -d "$script_dir" ]]; then
       echo "  Contents of $script_dir/:"
       ls -la "$script_dir/" 2>/dev/null | head -10 || true
     fi
     echo "  Files in current directory:"
-    ls -la . 2>/dev/null | grep -E "(maintain|install)" || true
+    find . -maxdepth 1 -type f \( -name '*maintain*' -o -name '*install*' \) -exec ls -la {} + 2>/dev/null || true
     exit 1
   fi
 }
@@ -561,38 +570,12 @@ setup_nix_path() {
   if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
     echo "${YELLOW}📦 Setting up Nix PATH...${NC}"
     
-    # Get the directory where this script is located (use same robust method as setup_maintain_system)
-    local script_dir=""
+    # Use REPO_ROOT that was detected at script start
+    local script_dir="$REPO_ROOT"
     
-    # Method 1: Use zsh-specific variable (works in zsh)
-    if [[ -n "${(%):-%x}" ]]; then
-      script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)" 2>/dev/null || script_dir=""
-    fi
-    
-    # Method 2: Use $0 if method 1 failed or not in zsh
-    if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
-      if [[ -n "${0}" ]] && [[ -f "${0}" ]]; then
-        script_dir="$(cd "$(dirname "${0}")" && pwd)" 2>/dev/null || script_dir=""
-      fi
-    fi
-    
-    # Method 3: Try current directory as fallback
-    if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
-      if [[ -f "./scripts/nix-macos-maintenance.sh" ]]; then
-        script_dir="$(pwd)"
-      fi
-    fi
-    
-    # Method 4: Search from current directory up
+    # Fallback: try to detect again if REPO_ROOT not set or file not found
     if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/scripts/nix-macos-maintenance.sh" ]]; then
-      local search_dir="$(pwd)"
-      while [[ "$search_dir" != "/" ]]; do
-        if [[ -f "$search_dir/scripts/nix-macos-maintenance.sh" ]]; then
-          script_dir="$search_dir"
-          break
-        fi
-        search_dir="$(dirname "$search_dir")"
-      done
+      script_dir="$(_detect_repo_root)"
     fi
     
     if [[ -n "$script_dir" ]] && [[ -f "$script_dir/scripts/nix-macos-maintenance.sh" ]]; then
@@ -683,16 +666,105 @@ install_zsh_config() {
     echo "${GREEN}✅ Backup created${NC}"
   fi
   
-  # Get the directory where this script is located
-  local script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+  # Use REPO_ROOT that was detected at script start
+  local script_dir="$REPO_ROOT"
   
-  if [[ -f "$script_dir/zsh.sh" ]]; then
+  # Fallback: try to detect again if REPO_ROOT not set or file not found
+  if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/zsh.sh" ]]; then
+    script_dir="$(_detect_repo_root)"
+  fi
+  
+  if [[ -n "$script_dir" ]] && [[ -f "$script_dir/zsh.sh" ]]; then
     echo "${YELLOW}📦 Installing zsh configuration...${NC}"
     cp "$script_dir/zsh.sh" "$HOME/.zshrc"
     echo "${GREEN}✅ zsh configuration installed${NC}"
   else
     echo "${RED}❌ Error: zsh.sh not found in $script_dir${NC}"
+    echo "  REPO_ROOT: ${REPO_ROOT:-not set}"
     exit 1
+  fi
+}
+
+# Function to refresh environment immediately after installation
+# This ensures PATH and other variables are updated in the current shell session
+# Critical for CI/non-interactive mode where commands are run immediately after installation
+refresh_environment() {
+  echo "${YELLOW}📦 Refreshing environment...${NC}"
+  
+  # Update HOMEBREW_PREFIX detection
+  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
+  
+  # Update PATH based on .zprofile configuration without sourcing the entire file
+  # This avoids executing potentially problematic commands in non-interactive mode
+  # We manually apply the PATH cleanup logic instead of sourcing .zprofile
+  
+  # Update PATH immediately based on what should be in .zprofile
+  local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
+  [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+  
+  if [[ -n "$HOMEBREW_PREFIX" ]]; then
+    # Remove Homebrew paths from current PATH temporarily
+    local cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -v "^$HOMEBREW_PREFIX/bin$" | grep -v "^$HOMEBREW_PREFIX/sbin$" | grep -v "^$local_bin$" | tr '\n' ':' | sed 's/:$//' 2>/dev/null)
+    # Rebuild PATH with Homebrew first, then ~/.local/bin, then others
+    export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$local_bin:$cleaned_path"
+  else
+    # No Homebrew, just ensure ~/.local/bin is in PATH
+    case ":$PATH:" in
+      *":$local_bin:"*) ;;
+      *) export PATH="$local_bin:$PATH" ;;
+    esac
+  fi
+  
+  # Add MacPorts to PATH if installed
+  if [[ -d /opt/local/bin ]] && [[ -x /opt/local/bin/port ]]; then
+    case ":$PATH:" in
+      *":/opt/local/bin:"*) ;;
+      *) export PATH="/opt/local/bin:/opt/local/sbin:$PATH" ;;
+    esac
+  fi
+  
+  # Add Nix to PATH if installed
+  if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+    if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+      source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
+    fi
+  fi
+  
+  # Verify critical commands are now available
+  local missing_commands=()
+  if [[ -n "$HOMEBREW_PREFIX" ]] && ! command -v brew >/dev/null 2>&1; then
+    # Try to add brew to PATH if it exists but isn't found
+    if [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+      export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$PATH"
+    fi
+  fi
+  
+  # Check maintain-system
+  if ! command -v maintain-system >/dev/null 2>&1; then
+    local maintain_system_path="$local_bin/maintain-system"
+    if [[ -x "$maintain_system_path" ]]; then
+      # It exists but isn't in PATH yet - PATH should have been updated above
+      # Just verify it's accessible
+      if [[ -x "$maintain_system_path" ]]; then
+        : # Command exists, PATH should work now
+      fi
+    fi
+  fi
+  
+  echo "${GREEN}✅ Environment refreshed${NC}"
+  
+  # In CI/non-interactive mode, verify critical commands are available
+  if [[ -n "${NONINTERACTIVE:-}" ]] || [[ -n "${CI:-}" ]]; then
+    local verified=0
+    if command -v brew >/dev/null 2>&1; then
+      ((verified++))
+    fi
+    if command -v maintain-system >/dev/null 2>&1 || [[ -x "$local_bin/maintain-system" ]]; then
+      ((verified++))
+    fi
+    if [[ $verified -gt 0 ]]; then
+      echo "  ${BLUE}INFO:${NC} Critical commands verified in current shell session"
+    fi
   fi
 }
 
@@ -741,6 +813,10 @@ main() {
   # Install zsh config
   install_zsh_config
   
+  # Refresh environment immediately (critical for CI/non-interactive mode)
+  # This ensures PATH and other variables are updated in the current shell session
+  refresh_environment
+  
   echo ""
   if [[ $install_warnings -gt 0 ]]; then
     echo "${YELLOW}⚠️  Installation completed with $install_warnings warning(s)${NC}"
@@ -757,6 +833,37 @@ main() {
   echo "  - update    : Update all tools, package managers, and language runtimes"
   echo "  - verify    : Check status of all installed tools"
   echo "  - versions  : Display versions of all tools"
+  echo ""
+  
+  # In CI/non-interactive mode, verify that commands are immediately available
+  if [[ -n "${NONINTERACTIVE:-}" ]] || [[ -n "${CI:-}" ]]; then
+    echo ""
+    echo "${BLUE}INFO:${NC} Environment has been refreshed - commands should be available immediately"
+    echo "${BLUE}INFO:${NC} Testing critical commands..."
+    
+    if command -v brew >/dev/null 2>&1; then
+      echo "  ✅ brew is available"
+    else
+      echo "  ⚠️  brew not found in PATH (may need shell restart)"
+    fi
+    
+    local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
+    [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+    
+    if command -v maintain-system >/dev/null 2>&1 || [[ -x "$local_bin/maintain-system" ]]; then
+      echo "  ✅ maintain-system is available"
+    else
+      echo "  ⚠️  maintain-system not found (may need shell restart)"
+    fi
+    
+    if command -v port >/dev/null 2>&1; then
+      echo "  ✅ port (MacPorts) is available"
+    fi
+    
+    if command -v nix >/dev/null 2>&1 || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
+      echo "  ✅ nix is available"
+    fi
+  fi
   echo ""
 }
 

@@ -1,6 +1,6 @@
 # macOS Development Environment Setup
 
-[![CI](https://github.com/26zl/MacOS_Basic_Setup/workflows/CI/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
+[![Checks](https://github.com/26zl/MacOS_Basic_Setup/workflows/Checks/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
 [![Security Scan](https://github.com/26zl/MacOS_Basic_Setup/workflows/Security%20Scan/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
 [![macOS Test](https://github.com/26zl/MacOS_Basic_Setup/workflows/macOS%20Test/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
 
@@ -44,7 +44,7 @@ versions  # Display versions of all tools
 - **Performance Optimized** - Lazy loading and PATH cleanup for faster shell startup
 - **System Protection** - Automatically detects and protects macOS system Python/Ruby from modification
 - **Permanent Configuration** - Go toolchain upgrades via Homebrew are made permanent via `.zprofile`
-- **CI/Cron Safe** - Non-interactive mode support (`NONINTERACTIVE=1` or `CI=1`) - automatically skips prompts and potentially destructive operations
+- **CI/Cron Safe** - Non-interactive mode support (`NONINTERACTIVE=1` or `CI=1`) - automatically answers "yes" to all prompts in CI mode for testing, skips potentially destructive operations in cron mode
 - **Smart Package Manager Detection** - Automatically sources nvm and chruby shell functions for non-interactive shells
 
 ## Installation
@@ -113,7 +113,7 @@ versions  # Display versions of all tools
 - System Python/Ruby are automatically detected and protected from modification
 - Homebrew Python: pip/setuptools/wheel are managed by Homebrew (skipped), but user-installed pip packages are updated
 - Go upgrades via Homebrew are made permanent (GOROOT and PATH written to `.zprofile`)
-- Project-specific files (e.g., `go.mod`, `package.json`, `requirements.txt`) are **not** updated - this is a system maintenance tool, not a project dependency manager
+- Project-specific files (e.g., `go.mod`, `package.json`, `requirements.txt`, `Gemfile.lock`) are **not** updated - this is a system maintenance tool, not a project dependency manager
 - Database servers are detected and reported; this project does not install or upgrade databases for you
 
 ### Nix Maintenance (macOS)

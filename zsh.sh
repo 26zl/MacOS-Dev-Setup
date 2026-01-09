@@ -306,12 +306,23 @@ fi
 # MySQL aliases - detect MySQL installation dynamically
 _detect_mysql_path() {
   # Check common MySQL installation locations
-  local mysql_paths=(
-    "$(brew --prefix mysql 2>/dev/null)/support-files/mysql.server"
-    "$(brew --prefix mariadb 2>/dev/null)/support-files/mysql.server"
+  local mysql_paths=()
+  
+  # Only check Homebrew paths if brew is available
+  if command -v brew >/dev/null 2>&1; then
+    local brew_prefix
+    brew_prefix=$(brew --prefix 2>/dev/null || echo "")
+    if [[ -n "$brew_prefix" ]]; then
+      mysql_paths+=(
+        "$brew_prefix/opt/mysql/support-files/mysql.server"
+        "$brew_prefix/opt/mariadb/support-files/mysql.server"
+      )
+    fi
+  fi
+  
+  # Add standard system paths
+  mysql_paths+=(
     "/usr/local/mysql/support-files/mysql.server"
-    "/opt/homebrew/opt/mysql/support-files/mysql.server"
-    "/opt/homebrew/opt/mariadb/support-files/mysql.server"
   )
   
   for path in "${mysql_paths[@]}"; do

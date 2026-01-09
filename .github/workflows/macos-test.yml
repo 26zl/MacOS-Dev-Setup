@@ -581,6 +581,57 @@ jobs:
           else:
               print("Update skip messages not found (may be OK if all tools are installed)")
           
+          # Test that update does not modify project files
+          print("")
+          print("Testing that update does not modify project files...")
+          import tempfile
+          import os
+          import shutil
+          
+          test_dir = tempfile.mkdtemp()
+          os.chdir(test_dir)
+          
+          # Create test project files
+          Path("Gemfile").write_text("source 'https://rubygems.org'\ngem 'test', '1.0.0'")
+          Path("Gemfile.lock").write_text("test (1.0.0)")
+          Path("package.json").write_text('{"name":"test","version":"1.0.0"}')
+          Path("package-lock.json").write_text("package-lock.json content")
+          Path("go.mod").write_text("module test")
+          Path("go.sum").write_text("go.sum content")
+          Path("requirements.txt").write_text("test==1.0.0")
+          Path("requirements.lock").write_text("test==1.0.0")
+          
+          # Run update in test directory
+          try:
+              result = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=300, cwd=test_dir)
+          except subprocess.TimeoutExpired:
+              print("Update test timed out (may be OK)")
+          
+          # Verify project files were not modified
+          files_unchanged = True
+          if Path("Gemfile.lock").read_text() != "test (1.0.0)":
+              print("ERROR: Gemfile.lock was modified")
+              files_unchanged = False
+          if Path("package-lock.json").read_text() != "package-lock.json content":
+              print("ERROR: package-lock.json was modified")
+              files_unchanged = False
+          if Path("go.mod").read_text() != "module test":
+              print("ERROR: go.mod was modified")
+              files_unchanged = False
+          if Path("requirements.lock").read_text() != "test==1.0.0":
+              print("ERROR: requirements.lock was modified")
+              files_unchanged = False
+          
+          if files_unchanged:
+              print("✅ Project files were not modified by update command")
+          else:
+              print("❌ Project files were modified - this violates the project file protection promise")
+              sys.exit(1)
+          
+          # Cleanup
+          os.chdir("/")
+          shutil.rmtree(test_dir)
+          
           # Test that update actually works with installed package managers
           import shutil
           if shutil.which("brew"):

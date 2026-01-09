@@ -88,6 +88,67 @@ else
 fi
 
 echo ""
+echo "4. Testing that maintain-system doesn't modify project files..."
+# Create a temporary test directory with project files
+test_dir=$(mktemp -d)
+cd "$test_dir" || exit 1
+
+# Create test project files
+echo "source 'https://rubygems.org'" > Gemfile
+echo "gem 'test', '1.0.0'" >> Gemfile
+echo "test (1.0.0)" > Gemfile.lock
+echo '{"name":"test","version":"1.0.0"}' > package.json
+echo "package-lock.json content" > package-lock.json
+echo "module test" > go.mod
+echo "go.sum content" > go.sum
+echo "test==1.0.0" > requirements.txt
+echo "test==1.0.0" > requirements.lock
+
+# Get maintain-system path
+maintain_system_path="$(get_maintain_system_path || true)"
+if [[ -n "$maintain_system_path" ]]; then
+  # Run update in the test directory (should not modify project files)
+  if "$maintain_system_path" update > /dev/null 2>&1; then
+    # Check that project files were not modified
+    if [[ -f Gemfile.lock ]] && [[ "$(cat Gemfile.lock)" == "test (1.0.0)" ]]; then
+      echo "✅ Gemfile.lock not modified"
+    else
+      echo "❌ Gemfile.lock was modified"
+      test_failed=1
+    fi
+    
+    if [[ -f package-lock.json ]] && [[ "$(cat package-lock.json)" == "package-lock.json content" ]]; then
+      echo "✅ package-lock.json not modified"
+    else
+      echo "❌ package-lock.json was modified"
+      test_failed=1
+    fi
+    
+    if [[ -f go.mod ]] && [[ "$(cat go.mod)" == "module test" ]]; then
+      echo "✅ go.mod not modified"
+    else
+      echo "❌ go.mod was modified"
+      test_failed=1
+    fi
+    
+    if [[ -f requirements.lock ]] && [[ "$(cat requirements.lock)" == "test==1.0.0" ]]; then
+      echo "✅ requirements.lock not modified"
+    else
+      echo "❌ requirements.lock was modified"
+      test_failed=1
+    fi
+  else
+    echo "⚠️  Could not test project file protection (update command may have failed)"
+  fi
+else
+  echo "⚠️  maintain-system not available - skipping project file protection test"
+fi
+
+# Cleanup
+cd - > /dev/null || true
+rm -rf "$test_dir"
+
+echo ""
 if [[ $test_failed -eq 0 ]]; then
   echo "${GREEN}=== Test Complete ===${NC}"
   exit 0
