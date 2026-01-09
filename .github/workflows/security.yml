@@ -22,52 +22,48 @@ jobs:
         run: |
           echo "=== Checking for dangerous code patterns ==="
           found_issues=0
-          
+
           # Check for dangerous shell patterns
           echo "Checking for dangerous shell patterns..."
-          if grep -rE "(eval.*\$|exec.*\$|system.*\$|`.*\$|\$\(.*\$)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*eval|#.*exec|#.*system|#.*\`|#.*\$\(|example|Example|EXAMPLE"; then
+          if grep -rE "(eval.*\$|exec.*\$|system.*\$|\`.*\$|\$\(.*\$)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . 2>/dev/null | grep -vE "#.*eval|#.*exec|#.*system|#.*\`|#.*\$\(|example|Example|EXAMPLE"; then
             echo "WARNING: Found potentially dangerous shell patterns (eval/exec/system with variables)"
-            grep -rE "(eval.*\$|exec.*\$|system.*\$|`.*\$|\$\(.*\$)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*eval|#.*exec|#.*system|#.*\`|#.*\$\(|example|Example|EXAMPLE" || true
             found_issues=1
           else
             echo "OK: No dangerous shell patterns found"
           fi
-          
+
           # Check for hardcoded passwords or secrets patterns
           echo "Checking for hardcoded secrets patterns..."
-          if grep -riE "(password\s*=\s*['\"][^'\"]+|api[_-]?key\s*=\s*['\"][^'\"]+|secret\s*=\s*['\"][^'\"]+|token\s*=\s*['\"][^'\"]+|pwd\s*=\s*['\"][^'\"]+)" --include="*.sh" --include="*.zsh" --include="*.yml" --include="*.yaml" --exclude-dir=".git" . | grep -vE "#.*password|#.*api|#.*secret|#.*token|#.*pwd|example|Example|EXAMPLE|test|Test|TEST|dummy|Dummy|DUMMY"; then
+          if grep -riE "(password\s*=\s*['\"][^'\"]+|api[_-]?key\s*=\s*['\"][^'\"]+|secret\s*=\s*['\"][^'\"]+|token\s*=\s*['\"][^'\"]+|pwd\s*=\s*['\"][^'\"]+)" --include="*.sh" --include="*.zsh" --include="*.yml" --include="*.yaml" --exclude-dir=".git" . 2>/dev/null | grep -vE "#.*password|#.*api|#.*secret|#.*token|#.*pwd|example|Example|EXAMPLE|test|Test|TEST|dummy|Dummy|DUMMY"; then
             echo "WARNING: Found potential hardcoded secrets patterns"
-            grep -riE "(password\s*=\s*['\"][^'\"]+|api[_-]?key\s*=\s*['\"][^'\"]+|secret\s*=\s*['\"][^'\"]+|token\s*=\s*['\"][^'\"]+|pwd\s*=\s*['\"][^'\"]+)" --include="*.sh" --include="*.zsh" --include="*.yml" --include="*.yaml" --exclude-dir=".git" . | grep -vE "#.*password|#.*api|#.*secret|#.*token|#.*pwd|example|Example|EXAMPLE|test|Test|TEST|dummy|Dummy|DUMMY" || true
             found_issues=1
           else
             echo "OK: No hardcoded secrets patterns found"
           fi
-          
+
           # Check for unsafe file operations
           echo "Checking for unsafe file operations..."
-          if grep -rE "(rm\s+-rf\s+\$|rm\s+-rf\s+[^/]*\$|rm\s+-rf\s+\.\.|rm\s+-rf\s+/)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*rm|example|Example|EXAMPLE"; then
+          if grep -rE "(rm\s+-rf\s+\$|rm\s+-rf\s+[^/]*\$|rm\s+-rf\s+\.\.|rm\s+-rf\s+/)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . 2>/dev/null | grep -vE "#.*rm|example|Example|EXAMPLE"; then
             echo "WARNING: Found potentially unsafe rm -rf operations"
-            grep -rE "(rm\s+-rf\s+\$|rm\s+-rf\s+[^/]*\$|rm\s+-rf\s+\.\.|rm\s+-rf\s+/)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*rm|example|Example|EXAMPLE" || true
             found_issues=1
           else
             echo "OK: No unsafe file operations found"
           fi
-          
+
           # Check for command injection vulnerabilities
           echo "Checking for command injection patterns..."
-          if grep -rE "(curl.*\$\{|wget.*\$\{|curl.*`|wget.*`)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*curl|#.*wget|example|Example|EXAMPLE"; then
+          if grep -rE "(curl.*\$\{|wget.*\$\{|curl.*\`|wget.*\`)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . 2>/dev/null | grep -vE "#.*curl|#.*wget|example|Example|EXAMPLE"; then
             echo "WARNING: Found potential command injection patterns"
-            grep -rE "(curl.*\$\{|wget.*\$\{|curl.*`|wget.*`)" --include="*.sh" --include="*.zsh" --exclude-dir=".git" . | grep -vE "#.*curl|#.*wget|example|Example|EXAMPLE" || true
             found_issues=1
           else
             echo "OK: No command injection patterns found"
           fi
-          
+
           if [ "$found_issues" -eq 1 ]; then
             echo ""
             echo "WARNING: Some potentially dangerous code patterns found"
             echo "Please review the findings above"
-            exit 0  # Don't fail the build, just warn
+            exit 0
           else
             echo ""
             echo "OK: No dangerous code patterns found"
