@@ -208,7 +208,10 @@ install_zsh_plugins() {
 # Function to install FZF
 install_fzf() {
   if ! command -v fzf >/dev/null 2>&1; then
-    if [[ -n "$HOMEBREW_PREFIX" ]]; then
+    # Update HOMEBREW_PREFIX in case it was just installed
+    HOMEBREW_PREFIX="$(_detect_brew_prefix)"
+    
+    if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
       echo "${YELLOW}📦 Installing FZF via Homebrew...${NC}"
       if "$HOMEBREW_PREFIX/bin/brew" install fzf; then
         echo "${GREEN}✅ FZF installed${NC}"
@@ -226,7 +229,10 @@ install_fzf() {
 # Function to install mas (Mac App Store CLI)
 install_mas() {
   if ! command -v mas >/dev/null 2>&1; then
-    if [[ -n "$HOMEBREW_PREFIX" ]] && command -v brew >/dev/null 2>&1; then
+    # Update HOMEBREW_PREFIX in case it was just installed
+    HOMEBREW_PREFIX="$(_detect_brew_prefix)"
+    
+    if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
       if _ask_user "${YELLOW}📦 mas (Mac App Store CLI) not found. Install mas via Homebrew?" "Y"; then
         echo "  Installing mas via Homebrew..."
         if "$HOMEBREW_PREFIX/bin/brew" install mas; then
@@ -321,32 +327,65 @@ install_macports() {
           }
           
           echo "  Configuring MacPorts..."
-          if ./configure; then
-            echo "  Building MacPorts (this may take a while)..."
-            if make; then
-              echo "  Installing MacPorts (requires sudo)..."
-              if sudo make install; then
-                echo ""
-                echo "${GREEN}✅ MacPorts installed successfully${NC}"
-                echo "  ${BLUE}INFO:${NC} Please open a new terminal window for PATH changes to take effect"
-                echo "  ${BLUE}INFO:${NC} Then run: sudo port selfupdate"
+          # In CI/non-interactive mode, suppress verbose output
+          if [[ -n "${NONINTERACTIVE:-}" ]] || [[ -n "${CI:-}" ]]; then
+            if ./configure >/dev/null 2>&1; then
+              echo "  Configuration complete"
+              echo "  Building MacPorts (this may take a while)..."
+              if make >/dev/null 2>&1; then
+                echo "  Build complete"
+                echo "  Installing MacPorts (requires sudo)..."
+                if sudo make install >/dev/null 2>&1; then
+                  echo ""
+                  echo "${GREEN}✅ MacPorts installed successfully${NC}"
+                  echo "  ${BLUE}INFO:${NC} Please open a new terminal window for PATH changes to take effect"
+                  echo "  ${BLUE}INFO:${NC} Then run: sudo port selfupdate"
+                else
+                  echo "  ${RED}❌ MacPorts installation failed (make install)${NC}"
+                  cd - >/dev/null || true
+                  rm -rf "$temp_dir"
+                  return 1
+                fi
               else
-                echo "  ${RED}❌ MacPorts installation failed (make install)${NC}"
+                echo "  ${RED}❌ MacPorts build failed (make)${NC}"
                 cd - >/dev/null || true
                 rm -rf "$temp_dir"
                 return 1
               fi
             else
-              echo "  ${RED}❌ MacPorts build failed (make)${NC}"
+              echo "  ${RED}❌ MacPorts configuration failed (configure)${NC}"
               cd - >/dev/null || true
               rm -rf "$temp_dir"
               return 1
             fi
           else
-            echo "  ${RED}❌ MacPorts configuration failed (configure)${NC}"
-            cd - >/dev/null || true
-            rm -rf "$temp_dir"
-            return 1
+            if ./configure; then
+              echo "  Building MacPorts (this may take a while)..."
+              if make; then
+                echo "  Installing MacPorts (requires sudo)..."
+                if sudo make install; then
+                  echo ""
+                  echo "${GREEN}✅ MacPorts installed successfully${NC}"
+                  echo "  ${BLUE}INFO:${NC} Please open a new terminal window for PATH changes to take effect"
+                  echo "  ${BLUE}INFO:${NC} Then run: sudo port selfupdate"
+                else
+                  echo "  ${RED}❌ MacPorts installation failed (make install)${NC}"
+                  cd - >/dev/null || true
+                  rm -rf "$temp_dir"
+                  return 1
+                fi
+              else
+                echo "  ${RED}❌ MacPorts build failed (make)${NC}"
+                cd - >/dev/null || true
+                rm -rf "$temp_dir"
+                return 1
+              fi
+            else
+              echo "  ${RED}❌ MacPorts configuration failed (configure)${NC}"
+              cd - >/dev/null || true
+              rm -rf "$temp_dir"
+              return 1
+            fi
           fi
         else
           echo "  ${RED}❌ Failed to extract MacPorts source${NC}"
@@ -373,41 +412,73 @@ install_macports() {
 
 # Function to install Nix
 install_nix() {
-  if ! command -v nix >/dev/null 2>&1 && ! [[ -d /nix ]] && ! [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
-    if _ask_user "${YELLOW}📦 Nix not found. Install Nix?" "N"; then
-      echo ""
-      echo "${YELLOW}⚠️  IMPORTANT: Please follow the Nix installation carefully${NC}"
-      echo "  ${BLUE}INFO:${NC} The installer may prompt you for:"
-      echo "    - Your password (for sudo)"
-      echo "    - Confirmation to create /nix directory"
-      echo "    - Additional setup steps"
-      echo ""
-      echo "  ${BLUE}INFO:${NC} Please read all messages from the installer and follow instructions"
-      echo "  ${BLUE}INFO:${NC} The installation process will be shown below:"
-      echo ""
-      echo "  Installing Nix..."
-      echo "  ${BLUE}INFO:${NC} This will run the official Nix installer"
-      echo ""
-      if sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon; then
-        echo ""
-        echo "${GREEN}✅ Nix installed successfully${NC}"
-        echo "  ${BLUE}INFO:${NC} Restart your terminal or run: source ~/.zprofile"
-        echo "  ${BLUE}INFO:${NC} Then run: ./scripts/nix-macos-maintenance.sh ensure-path"
-      else
-        echo ""
-        echo "${RED}❌ Nix installation failed${NC}"
-        echo "  ${BLUE}INFO:${NC} Visit: https://nixos.org/download.html for manual installation"
-        echo "  ${BLUE}INFO:${NC} If installation was interrupted, you may need to clean up before retrying"
-      fi
-    else
-      echo "${YELLOW}⚠️  Skipping Nix installation${NC}"
-    fi
-  else
+  # Check if Nix is already installed (multiple ways to detect)
+  if command -v nix >/dev/null 2>&1 || [[ -d /nix ]] || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
     if [[ -d /nix ]] || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
       echo "${GREEN}✅ Nix detected (may need PATH setup)${NC}"
     else
       echo "${GREEN}✅ Nix already installed${NC}"
     fi
+    return 0
+  fi
+  
+  if _ask_user "${YELLOW}📦 Nix not found. Install Nix?" "N"; then
+    echo ""
+    echo "${YELLOW}⚠️  IMPORTANT: Please follow the Nix installation carefully${NC}"
+    echo "  ${BLUE}INFO:${NC} The installer may prompt you for:"
+    echo "    - Your password (for sudo)"
+    echo "    - Confirmation to create /nix directory"
+    echo "    - Additional setup steps"
+    echo ""
+    echo "  ${BLUE}INFO:${NC} Please read all messages from the installer and follow instructions"
+    echo "  ${BLUE}INFO:${NC} The installation process will be shown below:"
+    echo ""
+    echo "  Installing Nix..."
+    echo "  ${BLUE}INFO:${NC} This will run the official Nix installer"
+    echo ""
+    
+    # Save current directory and ensure we're in a stable location
+    local original_dir="$(pwd)"
+    local stable_dir="${HOME:-/tmp}"
+    
+    # Change to stable directory to avoid "cannot get cwd" errors
+    cd "$stable_dir" || cd /tmp || {
+      echo "  ${RED}❌ Failed to change to stable directory${NC}"
+      return 1
+    }
+    
+    # Run Nix installer and capture exit code
+    local install_exit=0
+    sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon || install_exit=$?
+    
+    # Return to original directory
+    cd "$original_dir" 2>/dev/null || true
+    
+    # Check if Nix was actually installed, even if installer reported failure
+    # (Sometimes the installer fails at the end but Nix is still installed)
+    if command -v nix >/dev/null 2>&1 || [[ -d /nix ]] || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
+      echo ""
+      echo "${GREEN}✅ Nix installed successfully${NC}"
+      echo "  ${BLUE}INFO:${NC} Restart your terminal or run: source ~/.zprofile"
+      echo "  ${BLUE}INFO:${NC} Then run: ./scripts/nix-macos-maintenance.sh ensure-path"
+      return 0
+    elif [[ $install_exit -eq 0 ]]; then
+      # Installer reported success but Nix not found - might need PATH setup
+      echo ""
+      echo "${YELLOW}⚠️  Nix installer completed, but Nix not found in PATH${NC}"
+      echo "  ${BLUE}INFO:${NC} This may be normal - try restarting your terminal"
+      echo "  ${BLUE}INFO:${NC} Or run: source ~/.zprofile"
+      return 0
+    else
+      echo ""
+      echo "${RED}❌ Nix installation failed${NC}"
+      echo "  ${BLUE}INFO:${NC} Visit: https://nixos.org/download.html for manual installation"
+      echo "  ${BLUE}INFO:${NC} If installation was interrupted, you may need to clean up before retrying"
+      return 1
+    fi
+  else
+    echo "${YELLOW}⚠️  Skipping Nix installation${NC}"
+    return 0
   fi
 }
 
@@ -420,9 +491,42 @@ setup_maintain_system() {
   mkdir -p "$local_bin"
   
   # Get the directory where this script is located
-  local script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+  # Try multiple methods to find the script directory for robustness
+  local script_dir=""
   
-  if [[ -f "$script_dir/maintain-system.sh" ]]; then
+  # Method 1: Use zsh-specific variable (works in zsh)
+  if [[ -n "${(%):-%x}" ]]; then
+    script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)" 2>/dev/null || script_dir=""
+  fi
+  
+  # Method 2: Use $0 if method 1 failed or not in zsh
+  if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
+    if [[ -n "${0}" ]] && [[ -f "${0}" ]]; then
+      script_dir="$(cd "$(dirname "${0}")" && pwd)" 2>/dev/null || script_dir=""
+    fi
+  fi
+  
+  # Method 3: Try current directory as fallback
+  if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
+    if [[ -f "./maintain-system.sh" ]]; then
+      script_dir="$(pwd)"
+    fi
+  fi
+  
+  # Method 4: Search from current directory up
+  if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/maintain-system.sh" ]]; then
+    local search_dir="$(pwd)"
+    while [[ "$search_dir" != "/" ]]; do
+      if [[ -f "$search_dir/maintain-system.sh" ]]; then
+        script_dir="$search_dir"
+        break
+      fi
+      search_dir="$(dirname "$search_dir")"
+    done
+  fi
+  
+  # Final check and installation
+  if [[ -n "$script_dir" ]] && [[ -f "$script_dir/maintain-system.sh" ]]; then
     cp "$script_dir/maintain-system.sh" "$local_bin/maintain-system"
     chmod +x "$local_bin/maintain-system"
     
@@ -437,10 +541,16 @@ setup_maintain_system() {
       exit 1
     fi
   else
-    echo "${RED}❌ Error: maintain-system.sh not found in $script_dir${NC}"
-    echo "  Looking for: $script_dir/maintain-system.sh"
+    echo "${RED}❌ Error: maintain-system.sh not found${NC}"
+    echo "  Searched in: $script_dir"
     echo "  Current directory: $(pwd)"
-    ls -la "$script_dir/" | head -10 || true
+    echo "  Attempted methods: zsh variable, \$0, current dir, parent search"
+    if [[ -n "$script_dir" ]]; then
+      echo "  Contents of $script_dir/:"
+      ls -la "$script_dir/" 2>/dev/null | head -10 || true
+    fi
+    echo "  Files in current directory:"
+    ls -la . 2>/dev/null | grep -E "(maintain|install)" || true
     exit 1
   fi
 }
@@ -451,10 +561,41 @@ setup_nix_path() {
   if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
     echo "${YELLOW}📦 Setting up Nix PATH...${NC}"
     
-    # Get the directory where this script is located
-    local script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+    # Get the directory where this script is located (use same robust method as setup_maintain_system)
+    local script_dir=""
     
-    if [[ -f "$script_dir/scripts/nix-macos-maintenance.sh" ]]; then
+    # Method 1: Use zsh-specific variable (works in zsh)
+    if [[ -n "${(%):-%x}" ]]; then
+      script_dir="$(cd "$(dirname "${(%):-%x}")" && pwd)" 2>/dev/null || script_dir=""
+    fi
+    
+    # Method 2: Use $0 if method 1 failed or not in zsh
+    if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
+      if [[ -n "${0}" ]] && [[ -f "${0}" ]]; then
+        script_dir="$(cd "$(dirname "${0}")" && pwd)" 2>/dev/null || script_dir=""
+      fi
+    fi
+    
+    # Method 3: Try current directory as fallback
+    if [[ -z "$script_dir" ]] || [[ ! -d "$script_dir" ]]; then
+      if [[ -f "./scripts/nix-macos-maintenance.sh" ]]; then
+        script_dir="$(pwd)"
+      fi
+    fi
+    
+    # Method 4: Search from current directory up
+    if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/scripts/nix-macos-maintenance.sh" ]]; then
+      local search_dir="$(pwd)"
+      while [[ "$search_dir" != "/" ]]; do
+        if [[ -f "$search_dir/scripts/nix-macos-maintenance.sh" ]]; then
+          script_dir="$search_dir"
+          break
+        fi
+        search_dir="$(dirname "$search_dir")"
+      done
+    fi
+    
+    if [[ -n "$script_dir" ]] && [[ -f "$script_dir/scripts/nix-macos-maintenance.sh" ]]; then
       if "$script_dir/scripts/nix-macos-maintenance.sh" ensure-path >/dev/null 2>&1; then
         echo "${GREEN}✅ Nix PATH configured${NC}"
       else
@@ -470,10 +611,6 @@ setup_nix_path() {
 
 # Function to setup PATH cleanup in .zprofile
 setup_zprofile_path_cleanup() {
-  if [[ -z "$HOMEBREW_PREFIX" ]]; then
-    return 0  # No Homebrew, skip
-  fi
-  
   echo "${YELLOW}📦 Setting up PATH cleanup in .zprofile...${NC}"
   
   # Check if PATH cleanup already exists
@@ -487,6 +624,9 @@ setup_zprofile_path_cleanup() {
     local zprofile_backup="$HOME/.zprofile.backup.$(date +%Y%m%d_%H%M%S)"
     cp "$HOME/.zprofile" "$zprofile_backup"
   fi
+  
+  # Ensure .zprofile exists (create empty file if it doesn't exist)
+  touch "$HOME/.zprofile"
   
   # Append PATH cleanup to .zprofile
   cat >> "$HOME/.zprofile" << 'ZPROFILE_EOF'
