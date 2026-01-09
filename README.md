@@ -114,6 +114,8 @@ versions  # Display versions of all tools
 - Homebrew Python: pip/setuptools/wheel are managed by Homebrew (skipped), but user-installed pip packages are updated
 - Go upgrades via Homebrew are made permanent (GOROOT and PATH written to `.zprofile`)
 - Project-specific files (e.g., `go.mod`, `package.json`, `requirements.txt`, `Gemfile.lock`) are **not** updated - this is a system maintenance tool, not a project dependency manager
+- **Global packages** (installed via `npm install -g`, `gem install`, `pip install --user`, etc.) are updated in your home directory - this is safe and expected
+- If you run `update` in a project directory, it will **not** modify project files (e.g., `package.json`, `Gemfile.lock`) - only global/system packages are updated
 - Database servers are detected and reported; this project does not install or upgrade databases for you
 
 ### Nix Maintenance (macOS)

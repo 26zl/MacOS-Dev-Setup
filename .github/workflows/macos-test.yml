@@ -116,7 +116,7 @@ jobs:
           if grep -qiE "(Install Homebrew\?|Install MacPorts\?|Install mas|Install Nix\?)" install.log; then
             echo "Interactive prompts found - checking if they were auto-answered..."
             if grep -qiE "\[Auto: yes\]" install.log; then
-              echo "✅ Interactive prompts correctly auto-answered in CI mode"
+              echo "OK: Interactive prompts correctly auto-answered in CI mode"
             else
               echo "WARNING: Prompts found but may not be auto-answered"
             fi
@@ -128,7 +128,7 @@ jobs:
           echo ""
           echo "=== Verifying installation attempts in CI ==="
           if grep -qiE "(Installing Homebrew|Installing mas|Installing MacPorts|Installing Nix)" install.log; then
-            echo "✅ Installation attempts detected in CI mode"
+            echo "OK: Installation attempts detected in CI mode"
           else
             echo "INFO: No installation attempts found (may be OK if all tools already installed)"
           fi
@@ -137,28 +137,28 @@ jobs:
           echo ""
           echo "=== Verifying package manager installations ==="
           if command -v brew >/dev/null 2>&1; then
-            echo "✅ Homebrew is installed and available"
+            echo "OK: Homebrew is installed and available"
             brew --version || echo "WARNING: Homebrew installed but version check failed"
           else
             echo "INFO: Homebrew not installed (may be OK if installation was skipped or failed)"
           fi
           
           if command -v mas >/dev/null 2>&1; then
-            echo "✅ mas is installed and available"
+            echo "OK: mas is installed and available"
             mas version || echo "WARNING: mas installed but version check failed"
           else
             echo "INFO: mas not installed (may be OK if Homebrew not available or installation was skipped)"
           fi
           
           if command -v port >/dev/null 2>&1; then
-            echo "✅ MacPorts is installed and available"
+            echo "OK: MacPorts is installed and available"
             port version || echo "WARNING: MacPorts installed but version check failed"
           else
             echo "INFO: MacPorts not installed (may be OK if installation was skipped or requires sudo)"
           fi
           
           if command -v nix >/dev/null 2>&1 || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
-            echo "✅ Nix is installed and available"
+            echo "OK: Nix is installed and available"
             nix --version 2>/dev/null || echo "WARNING: Nix installed but version check failed"
           else
             echo "INFO: Nix not installed (may be OK if installation was skipped or requires sudo)"
@@ -439,14 +439,14 @@ jobs:
           echo "Testing mas update/upgrade functionality..."
           if command -v mas >/dev/null 2>&1; then
             if grep -qE "mas upgrade.*mas update" maintain-system.sh && ! grep -q "sudo mas upgrade" maintain-system.sh; then
-              echo "✅ mas upgrade and update commands found in maintain-system.sh (without sudo)"
+              echo "OK: mas upgrade and update commands found in maintain-system.sh (without sudo)"
             else
               echo "WARNING: mas upgrade/update commands may not be correct in maintain-system.sh"
             fi
             
             # Test that mas actually works
             if mas version >/dev/null 2>&1; then
-              echo "✅ mas command works correctly"
+              echo "OK: mas command works correctly"
               mas list 2>/dev/null | head -5 || echo "INFO: mas list may require App Store sign-in"
             else
               echo "WARNING: mas command may not work correctly"
@@ -500,7 +500,7 @@ jobs:
             
             if command -v brew >/dev/null 2>&1; then
               if echo "$verify_output" | grep -qi "Homebrew.*OK\|Homebrew found"; then
-                echo "✅ maintain-system correctly detects Homebrew"
+                echo "OK: maintain-system correctly detects Homebrew"
               else
                 echo "WARNING: maintain-system may not detect Homebrew correctly"
               fi
@@ -508,7 +508,7 @@ jobs:
             
             if command -v mas >/dev/null 2>&1; then
               if echo "$verify_output" | grep -qi "mas.*OK\|mas found"; then
-                echo "✅ maintain-system correctly detects mas"
+                echo "OK: maintain-system correctly detects mas"
               else
                 echo "WARNING: maintain-system may not detect mas correctly"
               fi
@@ -516,7 +516,7 @@ jobs:
             
             if command -v port >/dev/null 2>&1; then
               if echo "$verify_output" | grep -qi "MacPorts.*OK\|MacPorts found"; then
-                echo "✅ maintain-system correctly detects MacPorts"
+                echo "OK: maintain-system correctly detects MacPorts"
               else
                 echo "WARNING: maintain-system may not detect MacPorts correctly"
               fi
@@ -524,7 +524,7 @@ jobs:
             
             if command -v nix >/dev/null 2>&1 || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
               if echo "$verify_output" | grep -qi "Nix.*OK\|Nix found"; then
-                echo "✅ maintain-system correctly detects Nix"
+                echo "OK: maintain-system correctly detects Nix"
               else
                 echo "WARNING: maintain-system may not detect Nix correctly"
               fi
@@ -623,9 +623,9 @@ jobs:
               files_unchanged = False
           
           if files_unchanged:
-              print("✅ Project files were not modified by update command")
+              print("OK: Project files were not modified by update command")
           else:
-              print("❌ Project files were modified - this violates the project file protection promise")
+              print("ERROR: Project files were modified - this violates the project file protection promise")
               sys.exit(1)
           
           # Cleanup

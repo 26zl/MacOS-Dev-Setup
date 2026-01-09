@@ -2,7 +2,7 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["macOS Test"]
+    workflows: ["Checks", "macOS Test", "Security Scan"]
     types:
       - completed
   release:
@@ -16,14 +16,120 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
+  check-workflows:
+    name: Check All Workflows Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    outputs:
+      all-success: ${{ steps.check.outputs.all-success }}
+    steps:
+      - name: Wait for all workflows and check status
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowRun = context.payload.workflow_run;
+            const workflowName = workflowRun.name;
+            const conclusion = workflowRun.conclusion;
+            const headSha = workflowRun.head_sha;
+            
+            console.log(`Workflow "${workflowName}" completed with conclusion: ${conclusion}`);
+            console.log(`Checking status of all workflows for commit: ${headSha}`);
+            
+            // Required workflows that must succeed
+            const requiredWorkflows = ['Checks', 'macOS Test', 'Security Scan'];
+            
+            // Wait a bit for all workflows to complete (they might finish almost simultaneously)
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            // Get all workflow runs for this commit
+            let allCompleted = false;
+            let attempts = 0;
+            const maxAttempts = 30; // Wait up to 5 minutes (30 * 10 seconds)
+            
+            while (!allCompleted && attempts < maxAttempts) {
+              attempts++;
+              const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head_sha: headSha,
+                per_page: 100
+              });
+              
+              const workflowStatuses = {};
+              
+              // Check status of all required workflows
+              for (const run of runs.workflow_runs) {
+                if (requiredWorkflows.includes(run.name)) {
+                  workflowStatuses[run.name] = {
+                    status: run.status,
+                    conclusion: run.conclusion,
+                    id: run.id
+                  };
+                }
+              }
+              
+              // Check if all required workflows are present and completed
+              allCompleted = true;
+              let allSuccess = true;
+              
+              for (const reqWorkflow of requiredWorkflows) {
+                const status = workflowStatuses[reqWorkflow];
+                if (!status) {
+                  console.log(`WAITING: Workflow "${reqWorkflow}" not found yet (attempt ${attempts}/${maxAttempts})`);
+                  allCompleted = false;
+                  break;
+                }
+                
+                if (status.status !== 'completed') {
+                  console.log(`WAITING: Workflow "${reqWorkflow}" is still running (status: ${status.status}, attempt ${attempts}/${maxAttempts})`);
+                  allCompleted = false;
+                  break;
+                }
+                
+                if (status.conclusion !== 'success') {
+                  console.log(`ERROR: Workflow "${reqWorkflow}" failed (conclusion: ${status.conclusion})`);
+                  allSuccess = false;
+                } else {
+                  console.log(`OK: Workflow "${reqWorkflow}" succeeded`);
+                }
+              }
+              
+              if (allCompleted) {
+                if (!allSuccess) {
+                  console.log('ERROR: One or more workflows failed. Release will not be created.');
+                  core.setOutput('all-success', 'false');
+                  return;
+                }
+                break;
+              }
+              
+              // Wait before next check
+              if (attempts < maxAttempts) {
+                console.log(`Waiting 10 seconds before next check... (attempt ${attempts}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, 10000));
+              }
+            }
+            
+            if (!allCompleted) {
+              console.log('TIMEOUT: Not all workflows completed within the timeout period. Release will not be created.');
+              core.setOutput('all-success', 'false');
+              return;
+            }
+            
+            console.log('OK: All required workflows succeeded! Proceeding with release...');
+            core.setOutput('all-success', 'true');
+
   create-release:
     name: Create Release Package
     runs-on: ubuntu-latest
-    # Only run if macOS Test workflow succeeded
+    needs: [check-workflows]
+    # Only run if all workflows succeeded or if triggered manually/release
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && needs.check-workflows.outputs.all-success == 'true') ||
       github.event_name == 'release' ||
       github.event_name == 'workflow_dispatch'
     steps:

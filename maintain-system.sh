@@ -78,6 +78,44 @@ _is_disabled() {
   return 1
 }
 
+# Check if we're in a project directory (not home directory)
+# Returns 0 if in project directory, 1 if in home directory or other location
+_is_project_directory() {
+  local current_dir="${PWD:-$(pwd)}"
+  local home_dir="${HOME:-}"
+  
+  # If we're in home directory, it's not a project (global packages are OK to update)
+  if [[ "$current_dir" == "$home_dir" ]]; then
+    return 1  # Not a project directory
+  fi
+  
+  # Check for project indicators (but not in home directory)
+  # If we have project files, we're in a project directory
+  if [[ -f "package.json" ]] || [[ -f "Gemfile" ]] || [[ -f "go.mod" ]] || [[ -f "requirements.txt" ]] || [[ -f "Cargo.toml" ]]; then
+    # Additional check: if we're in a subdirectory of home that looks like a project
+    # (e.g., ~/projects/myapp), treat it as a project
+    if [[ "$current_dir" == "$home_dir"/* ]]; then
+      # Check if it's a common project location (projects, dev, code, etc.)
+      local relative_path="${current_dir#$home_dir/}"
+      local first_dir="${relative_path%%/*}"
+      case "$first_dir" in
+        projects|dev|code|workspace|workspaces|src|sources|repos|repositories|git|github|gitlab|bitbucket)
+          return 0  # Likely a project directory
+          ;;
+        *)
+          # If it has project files, it's a project
+          return 0
+          ;;
+      esac
+    else
+      # Not in home directory and has project files - definitely a project
+      return 0
+    fi
+  fi
+  
+  return 1  # Not a project directory
+}
+
 # Ask user for confirmation (non-interactive mode support)
 _ask_user() {
   local prompt="$1"
@@ -276,9 +314,18 @@ _fix_all_ruby_gems() {
   done
   
   # Reinstall gems from Gemfile if it exists
+  # BUT: Only if we're NOT in a project directory (to avoid modifying project files)
+  # If Gemfile is in home directory, it's for global gems (OK to update)
   if [[ -f "Gemfile" ]]; then
-    echo "  BUNDLE: Reinstalling gems from Gemfile..."
-    bundle install 2>/dev/null || echo "    ${RED}WARNING:${NC} Bundle install failed"
+    if _is_project_directory; then
+      echo "  ${BLUE}INFO:${NC} Gemfile found in project directory - skipping bundle install"
+      echo "  ${BLUE}INFO:${NC} This script maintains system tools, not project dependencies"
+      echo "  ${BLUE}INFO:${NC} Run 'bundle install' manually in your project directory if needed"
+    else
+      # Gemfile in home directory or other non-project location - OK to update (global gems)
+      echo "  BUNDLE: Reinstalling gems from Gemfile (global installation)..."
+      bundle install 2>/dev/null || echo "    ${RED}WARNING:${NC} Bundle install failed"
+    fi
   fi
   
   # Clear gem cache
@@ -929,6 +976,13 @@ _cargo_update_packages() {
 update() {
   _ensure_system_path
   echo "${GREEN}==> Update started $(date)${NC}"
+  
+  # Check if we're in a project directory and warn user
+  if _is_project_directory; then
+    echo "  ${BLUE}INFO:${NC} Project directory detected - project files will NOT be modified"
+    echo "  ${BLUE}INFO:${NC} Only global/system packages will be updated"
+    echo "  ${BLUE}INFO:${NC} To update project dependencies, run package manager commands manually in this directory"
+  fi
   
   # Check macOS compatibility
   if ! _check_macos_compatibility; then

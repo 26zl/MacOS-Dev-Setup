@@ -651,6 +651,21 @@ else
     esac
   } >/dev/null 2>&1
 fi
+
+# Add MacPorts to PATH if installed
+if [[ -d /opt/local/bin ]] && [[ -x /opt/local/bin/port ]]; then
+  case ":$PATH:" in
+    *":/opt/local/bin:"*) ;;
+    *) export PATH="/opt/local/bin:/opt/local/sbin:$PATH" ;;
+  esac
+fi
+
+# Add Nix to PATH if installed
+if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+  if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
+  fi
+fi
 ZPROFILE_EOF
 
   echo "${GREEN}✅ PATH cleanup configured in .zprofile${NC}"
