@@ -63,7 +63,7 @@ jobs:
             echo "OK: No command injection patterns found"
           fi
           
-          if [[ $found_issues -eq 1 ]]; then
+          if [ "$found_issues" -eq 1 ]; then
             echo ""
             echo "WARNING: Some potentially dangerous code patterns found"
             echo "Please review the findings above"

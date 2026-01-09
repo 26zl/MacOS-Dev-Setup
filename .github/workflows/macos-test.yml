@@ -247,7 +247,26 @@ jobs:
             ms_dir=${ms_path:h}
             case ":$PATH:" in *":$ms_dir:"*) exit 0 ;; *) exit 1 ;; esac
           ' || { echo "PATH missing maintain-system directory"; exit 1; }
-          zsh -lc 'prefix=$(brew --prefix 2>/dev/null || true); if [[ -n "$prefix" ]]; then case "$PATH" in "$prefix/bin:"*) exit 0 ;; *) exit 1 ;; esac; fi' || { echo "Homebrew bin not first in PATH"; exit 1; }
+          
+          # Check Homebrew PATH with better error reporting
+          zsh -lc '
+            prefix=$(brew --prefix 2>/dev/null || true)
+            if [[ -z "$prefix" ]]; then
+              echo "ERROR: brew --prefix failed"
+              exit 1
+            fi
+            expected_prefix="$prefix/bin:"
+            if [[ "$PATH" == "$expected_prefix"* ]]; then
+              exit 0
+            else
+              echo "ERROR: Homebrew bin not first in PATH"
+              echo "Expected: $expected_prefix..."
+              echo "Actual PATH: $PATH"
+              echo "First 5 PATH entries:"
+              echo "$PATH" | tr ":" "\n" | head -5
+              exit 1
+            fi
+          ' || { echo "Homebrew bin not first in PATH"; exit 1; }
           
           # Test PATH cleanup functionality
           echo ""

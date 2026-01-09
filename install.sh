@@ -666,6 +666,18 @@ if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon
     source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
   fi
 fi
+
+# Final PATH reordering: Ensure Homebrew is ALWAYS first, even after Nix
+# Nix may add paths that come before Homebrew, so we re-apply Homebrew first
+HOMEBREW_PREFIX="$(_detect_brew_prefix)"
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  {
+    # Remove Homebrew paths from current PATH
+    cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -v "^$HOMEBREW_PREFIX/bin$" | grep -v "^$HOMEBREW_PREFIX/sbin$" | tr '\n' ':' | sed 's/:$//' 2>/dev/null)
+    # Rebuild PATH with Homebrew ABSOLUTELY FIRST, then others
+    export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$cleaned_path"
+  } >/dev/null 2>&1
+fi
 ZPROFILE_EOF
 
   echo "${GREEN}✅ PATH cleanup configured in .zprofile${NC}"

@@ -96,7 +96,7 @@ _is_project_directory() {
     # (e.g., ~/projects/myapp), treat it as a project
     if [[ "$current_dir" == "$home_dir"/* ]]; then
       # Check if it's a common project location (projects, dev, code, etc.)
-      local relative_path="${current_dir#$home_dir/}"
+      local relative_path="${current_dir#"$home_dir"/}"
       local first_dir="${relative_path%%/*}"
       case "$first_dir" in
         projects|dev|code|workspace|workspaces|src|sources|repos|repositories|git|github|gitlab|bitbucket)
