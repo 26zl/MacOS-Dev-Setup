@@ -79,7 +79,7 @@ _ask_user() {
   IFS= read -r response || return 1
   
   # Sanitize input: remove leading/trailing whitespace, limit length
-  response=$(echo "$response" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  response=$(echo "$response" | /usr/bin/tr -d '\r\n' | /usr/bin/sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   [[ ${#response} -gt 10 ]] && response="${response:0:10}"  # Limit to 10 chars
   
   # Validate: only allow y, Y, n, N, yes, Yes, YES, no, No, NO, or empty
@@ -323,7 +323,7 @@ install_nvm() {
   
   if _ask_user "${YELLOW}📦 nvm not found. Install nvm?" "Y"; then
     echo "  Installing nvm..."
-    if curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash; then
+    if /usr/bin/curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | /bin/bash; then
       echo "${GREEN}✅ nvm installed${NC}"
       # Install Node.js LTS after nvm is installed
       if [[ -s "$NVM_DIR/nvm.sh" ]]; then
@@ -540,7 +540,7 @@ install_rustup() {
   
   if _ask_user "${YELLOW}📦 rustup not found. Install rustup (Rust toolchain manager)?" "Y"; then
     echo "  Installing rustup..."
-    if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
+    if /usr/bin/curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | /bin/sh -s -- -y; then
       echo "${GREEN}✅ rustup installed${NC}"
       # Source cargo env if available
       if [[ -f "$HOME/.cargo/env" ]]; then
@@ -640,7 +640,7 @@ install_swiftly() {
   
   if _ask_user "${YELLOW}📦 swiftly not found. Install swiftly (Swift toolchain manager)?" "N"; then
     echo "  Installing swiftly..."
-    if curl -fsSL https://swiftlang.org/swiftly-install.sh | bash; then
+    if /usr/bin/curl -fsSL https://swiftlang.org/swiftly-install.sh | /bin/bash; then
       echo "${GREEN}✅ swiftly installed${NC}"
       # Install latest Swift after swiftly is installed
       echo "  ${BLUE}INFO:${NC} Installing latest Swift via swiftly..."

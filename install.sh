@@ -209,7 +209,7 @@ install_homebrew() {
 install_oh_my_zsh() {
   if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     echo "${YELLOW}📦 Installing Oh My Zsh...${NC}"
-    if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; then
+    if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc; then
       echo "${GREEN}✅ Oh My Zsh installed${NC}"
     else
       warn "Oh My Zsh installation failed"
