@@ -1502,8 +1502,17 @@ update() {
       
       # Update conda itself first
       local conda_update_output=""
-      conda_update_output="$(conda update -n base -c defaults conda -y 2>&1 || echo "FAILED")"
-      if [[ "$conda_update_output" != *"FAILED"* ]]; then
+      local conda_update_exit_code=0
+
+      # Try updating conda (use defaults channel for Anaconda, skip for miniforge)
+      if conda info | grep -qi "channel.*defaults"; then
+        conda_update_output="$(conda update -n base -c defaults conda -y 2>&1)" || conda_update_exit_code=$?
+      else
+        # For miniforge, update without specifying defaults channel
+        conda_update_output="$(conda update -n base conda -y 2>&1)" || conda_update_exit_code=$?
+      fi
+
+      if [[ $conda_update_exit_code -eq 0 ]]; then
         # Check if output indicates an actual update occurred
         if echo "$conda_update_output" | grep -qiE "(downloading|installing|updating|changed|upgraded)"; then
           echo "  conda updated successfully"
@@ -1514,13 +1523,15 @@ update() {
         fi
       else
         conda_errors+=("conda_update")
-        echo "  ${RED}WARNING:${NC} conda update failed"
+        echo "  ${RED}WARNING:${NC} conda update failed (exit code: $conda_update_exit_code)"
       fi
       
       # Update all packages in base environment
       local conda_packages_output=""
-      conda_packages_output="$(conda update --all -y 2>&1 || echo "FAILED")"
-      if [[ "$conda_packages_output" != *"FAILED"* ]]; then
+      local conda_packages_exit_code=0
+      conda_packages_output="$(conda update --all -y 2>&1)" || conda_packages_exit_code=$?
+
+      if [[ $conda_packages_exit_code -eq 0 ]]; then
         # Check if output indicates packages were actually updated
         if echo "$conda_packages_output" | grep -qiE "(downloading|installing|updating|changed|upgraded|will be)"; then
           echo "  conda packages updated successfully"
@@ -1531,7 +1542,7 @@ update() {
         fi
       else
         conda_errors+=("conda_packages")
-        echo "  ${RED}WARNING:${NC} Some conda packages failed to update"
+        echo "  ${RED}WARNING:${NC} Some conda packages failed to update (exit code: $conda_packages_exit_code)"
       fi
       
       # Clean conda cache
@@ -1574,8 +1585,17 @@ update() {
           
           # Update conda itself first
           local conda_update_output=""
-          conda_update_output="$(conda update -n base -c defaults conda -y 2>&1 || echo "FAILED")"
-          if [[ "$conda_update_output" != *"FAILED"* ]]; then
+          local conda_update_exit_code=0
+
+          # Try updating conda (use defaults channel for Anaconda, skip for miniforge)
+          if conda info | grep -qi "channel.*defaults"; then
+            conda_update_output="$(conda update -n base -c defaults conda -y 2>&1)" || conda_update_exit_code=$?
+          else
+            # For miniforge, update without specifying defaults channel
+            conda_update_output="$(conda update -n base conda -y 2>&1)" || conda_update_exit_code=$?
+          fi
+
+          if [[ $conda_update_exit_code -eq 0 ]]; then
             # Check if output indicates an actual update occurred
             if echo "$conda_update_output" | grep -qiE "(downloading|installing|updating|changed|upgraded)"; then
               echo "  conda updated successfully"
@@ -1586,13 +1606,15 @@ update() {
             fi
           else
             conda_errors+=("conda_update")
-            echo "  ${RED}WARNING:${NC} conda update failed"
+            echo "  ${RED}WARNING:${NC} conda update failed (exit code: $conda_update_exit_code)"
           fi
-          
+
           # Update all packages in base environment
           local conda_packages_output=""
-          conda_packages_output="$(conda update --all -y 2>&1 || echo "FAILED")"
-          if [[ "$conda_packages_output" != *"FAILED"* ]]; then
+          local conda_packages_exit_code=0
+          conda_packages_output="$(conda update --all -y 2>&1)" || conda_packages_exit_code=$?
+
+          if [[ $conda_packages_exit_code -eq 0 ]]; then
             # Check if output indicates packages were actually updated
             if echo "$conda_packages_output" | grep -qiE "(downloading|installing|updating|changed|upgraded|will be)"; then
               echo "  conda packages updated successfully"
@@ -1603,7 +1625,7 @@ update() {
             fi
           else
             conda_errors+=("conda_packages")
-            echo "  ${RED}WARNING:${NC} Some conda packages failed to update"
+            echo "  ${RED}WARNING:${NC} Some conda packages failed to update (exit code: $conda_packages_exit_code)"
           fi
           
           # Clean conda cache
