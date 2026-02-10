@@ -569,7 +569,7 @@ install_nix() {
     
     # Run Nix installer and capture exit code
     local install_exit=0
-    sh <(_curl_safe --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon || install_exit=$?
+    sh <(_curl_safe --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon --no-modify-profile || install_exit=$?
     
     # Return to original directory
     cd "$original_dir" 2>/dev/null || true

@@ -248,7 +248,13 @@ jobs:
           # Validate shell config content
           echo ""
           echo "=== Validating shell config content ==="
-          head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc" | cmp -s zsh.sh - || { echo "zsh.sh was not installed to ~/.zshrc as expected"; exit 1; }
+          if ! head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc" | cmp -s zsh.sh -; then
+            echo "zsh.sh was not installed to ~/.zshrc as expected"
+            echo "  zsh.sh lines: $(wc -l < zsh.sh), .zshrc lines: $(wc -l < "$HOME/.zshrc")"
+            echo "  zsh.sh bytes: $(wc -c < zsh.sh), head output bytes: $(head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc" | wc -c)"
+            diff <(head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc") zsh.sh | head -30 || true
+            exit 1
+          fi
           grep -q "FINAL PATH CLEANUP (FOR .ZPROFILE)" "$HOME/.zprofile" || { echo "Missing PATH cleanup block in ~/.zprofile"; exit 1; }
           grep -q "maintain_system_bin" "$HOME/.zshrc" || { echo "Missing maintain_system_bin in ~/.zshrc"; exit 1; }
           grep -q "alias update=" "$HOME/.zshrc" && echo "update alias definition found in ~/.zshrc" || echo "update alias definition not found (may be conditional)"

@@ -571,7 +571,7 @@ install_rustup() {
   
   if _ask_user "${YELLOW}📦 rustup not found. Install rustup (Rust toolchain manager)?" "Y"; then
     echo "  Installing rustup..."
-    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | /bin/sh -s -- -y; then
+    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | /bin/bash -s -- -y; then
       echo "${GREEN}✅ rustup installed${NC}"
       # Source cargo env if available
       if [[ -f "$HOME/.cargo/env" ]]; then
