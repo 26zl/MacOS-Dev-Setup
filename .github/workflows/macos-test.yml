@@ -657,6 +657,9 @@ jobs:
           python3 - <<'PYTHON_SCRIPT'
           import subprocess
           import sys
+          import os
+          import shutil
+          import tempfile
           from pathlib import Path
 
           cmd = ["zsh", "-lc", "maintain-system update"]
@@ -694,10 +697,6 @@ jobs:
           # Test that update does not modify project files
           print("")
           print("Testing that update does not modify project files...")
-          import tempfile
-          import os
-          import shutil
-          
           test_dir = tempfile.mkdtemp()
           os.chdir(test_dir)
           
@@ -743,7 +742,6 @@ jobs:
           shutil.rmtree(test_dir)
           
           # Test that update actually works with installed package managers
-          import shutil
           if shutil.which("brew"):
               if "Homebrew" in output or "brew" in output.lower():
                   print("Update command interacts with Homebrew")
