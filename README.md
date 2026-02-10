@@ -1,4 +1,4 @@
-# 🚀 macOS Development Environment Setup
+# macOS Development Environment Setup
 
 [![Checks](https://github.com/26zl/MacOS-Dev-Setup/workflows/Checks/badge.svg)](https://github.com/26zl/MacOS-Dev-Setup/actions)
 [![Security Scan](https://github.com/26zl/MacOS-Dev-Setup/workflows/Security%20Scan/badge.svg)](https://github.com/26zl/MacOS-Dev-Setup/actions)
@@ -9,7 +9,7 @@
 
 ![Terminal preview](background/image.png)
 
-## 🚀 Quick Start
+## Quick Start
 
 **One-liner install:**
 
@@ -35,13 +35,13 @@ verify    # Check status
 versions  # Show versions
 ```
 
-## ✨ Features
+## Features
 
-- ⚡ **One Command Updates**: Update Homebrew, Python, Node.js, Ruby, Rust, Go, Swift, .NET, and more
-- 🎨 **Beautiful Terminal**: Powerlevel10k, syntax highlighting, autosuggestions
-- 🛡️ **Safe & Smart**: Protects system files, graceful error handling
-- 📦 **Multi-Language**: Python (pyenv), Node.js (nvm), Ruby (chruby), Rust (rustup), Swift (swiftly), Go, Java, .NET
-- 🤖 **CI/CD Safe**: Non-interactive mode support
+- **One Command Updates**: Update Homebrew, Python, Node.js, Ruby, Rust, Go, Swift, .NET, and more
+- **Beautiful Terminal**: Powerlevel10k, syntax highlighting, autosuggestions
+- **Safe & Smart**: Protects system files, graceful error handling
+- **Multi-Language**: Python (pyenv), Node.js (nvm), Ruby (chruby), Rust (rustup), Swift (swiftly), Go, Java, .NET
+- **CI/CD Safe**: Non-interactive mode support
 
 ## Installation
 
@@ -96,7 +96,7 @@ Environment variables:
 - `MAINTAIN_SYSTEM_CHRUBY_KEEP="ruby-3.4.6"` - Keep specific Ruby versions
 - `MAINTAIN_SYSTEM_SWIFT_SNAPSHOTS=1` - Enable Swift snapshots
 
-## 📋 Supported Tools
+## Supported Tools
 
 **Package Managers**: Homebrew, MacPorts, Nix, mas, Conda, pipx
 
@@ -106,7 +106,7 @@ Environment variables:
 
 **Other**: Docker, C/C++ (via Xcode CLT)
 
-## 🎨 Terminal
+## Terminal
 
 Pre-configured with Oh My Zsh, Powerlevel10k, syntax highlighting, autosuggestions, and FZF.
 
@@ -119,18 +119,18 @@ cp "Ghostty config.txt" ~/.config/ghostty/config
 cp background/terminal-background.png ~/.config/ghostty/terminal-background.png
 ```
 
-## ❓ FAQ
+## FAQ
 
-**Will this modify my project files?**  
+**Will this modify my project files?**
 No! Only global/system packages are updated. Project files are never modified.
 
-**Is it safe for CI/CD?**  
+**Is it safe for CI/CD?**
 Yes! Set `NONINTERACTIVE=1` or `CI=1` for automated runs.
 
-**Does it work on Intel and Apple Silicon?**  
+**Does it work on Intel and Apple Silicon?**
 Yes! Automatically detects architecture.
 
-**What if tools are missing?**  
+**What if tools are missing?**
 The `update` command gracefully skips missing tools and shows installation instructions.
 
 ## Compatibility
@@ -146,16 +146,14 @@ The `update` command gracefully skips missing tools and shows installation instr
 
 ## Security
 
-**Security Features**:
-
-- ✅ Input validation and sanitization
-- ✅ Selective error handling
-- ✅ Safe directory navigation
-- ✅ HTTPS-only downloads with TLS verification
+- Input validation and sanitization
+- Selective error handling
+- Safe directory navigation
+- HTTPS-only downloads with TLS verification
 
 **Note**: Scripts download external content. Review scripts before running for maximum security.
 
-## 🤝 Contributing
+## Contributing
 
 1. Run `./quick-test.sh` to verify syntax
 2. Ensure ShellCheck passes
@@ -163,15 +161,13 @@ The `update` command gracefully skips missing tools and shows installation instr
 
 **CI/CD**: ShellCheck, Gitleaks, Trivy, syntax checks, comprehensive macOS tests.
 
-## 📄 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-### ⭐ If this project helped you, please consider giving it a star! ⭐
+If this project helped you, please consider giving it a star!
 
 [![GitHub stars](https://img.shields.io/github/stars/26zl/MacOS-Dev-Setup?style=social&label=Star)](https://github.com/26zl/MacOS-Dev-Setup/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/26zl/MacOS-Dev-Setup?style=social&label=Fork)](https://github.com/26zl/MacOS-Dev-Setup/fork)
-
-Made with ❤️ for the macOS developer community

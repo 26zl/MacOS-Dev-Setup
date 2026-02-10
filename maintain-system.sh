@@ -1037,7 +1037,7 @@ update() {
     brew_upgrade_tmpfile="$(mktemp)" || brew_upgrade_tmpfile="/tmp/brew_upgrade_$$"
 
     # Stream output in real-time so user sees progress, while also capturing for post-processing
-    brew upgrade 2>&1 | tee "$brew_upgrade_tmpfile" | sed 's/^/    /' || brew_upgrade_formula_exit_code=${PIPESTATUS[0]:-$pipestatus[1]}
+    brew upgrade 2>&1 | tee "$brew_upgrade_tmpfile" | sed 's/^/    /' || brew_upgrade_formula_exit_code=${pipestatus[1]}
     brew_upgrade_formula_output="$(<"$brew_upgrade_tmpfile")"
     rm -f "$brew_upgrade_tmpfile"
 
@@ -1067,7 +1067,7 @@ update() {
     brew_upgrade_cask_tmpfile="$(mktemp)" || brew_upgrade_cask_tmpfile="/tmp/brew_upgrade_cask_$$"
 
     # Stream output in real-time so user sees progress, while also capturing for post-processing
-    brew upgrade --cask --greedy 2>&1 | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /' || brew_upgrade_cask_exit_code=${PIPESTATUS[0]:-$pipestatus[1]}
+    brew upgrade --cask --greedy 2>&1 | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /' || brew_upgrade_cask_exit_code=${pipestatus[1]}
     brew_upgrade_cask_output="$(<"$brew_upgrade_cask_tmpfile")"
     rm -f "$brew_upgrade_cask_tmpfile"
 

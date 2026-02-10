@@ -15,8 +15,6 @@ jobs:
   macos-test:
     name: macOS Functionality Test
     runs-on: macos-latest
-    env:
-      FORCE_INTERACTIVE: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,7 +80,7 @@ jobs:
           echo "XDG_DATA_HOME=$fresh_home/.local/share" >> "$GITHUB_ENV"
           echo "XDG_CONFIG_HOME=$fresh_home/.config" >> "$GITHUB_ENV"
           echo "XDG_CACHE_HOME=$fresh_home/.cache" >> "$GITHUB_ENV"
-          echo "FORCE_INTERACTIVE=1" >> "$GITHUB_ENV"
+          echo "NONINTERACTIVE=1" >> "$GITHUB_ENV"
           mkdir -p "$fresh_home/.local/share" "$fresh_home/.config" "$fresh_home/.cache"
           echo "Fresh home directory prepared: $fresh_home"
 
@@ -90,12 +88,12 @@ jobs:
         run: |
           echo "=== Installation and Validation ==="
           
-          # Test yes-to-all prompt handling
+          # Test non-interactive mode (NONINTERACTIVE=1 auto-answers "yes" to all prompts)
           echo ""
-          echo "=== Testing yes-to-all mode ==="
-          echo "FORCE_INTERACTIVE=${FORCE_INTERACTIVE:-not set}"
+          echo "=== Testing non-interactive mode ==="
+          echo "NONINTERACTIVE=${NONINTERACTIVE:-not set}"
           echo "CI=${CI:-not set}"
-          
+
           # Install project
           echo ""
           echo "Testing install.sh on macOS with a clean HOME..."
@@ -103,17 +101,16 @@ jobs:
           echo "XDG_DATA_HOME=${XDG_DATA_HOME:-not set}"
           export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
           chmod +x install.sh maintain-system.sh zsh.sh 2>/dev/null || true
-          
-          # Use 'yes' command to automatically answer "yes" to all prompts
-          # This simulates user answering "yes" to all interactive questions
-          # Redirect yes stderr to /dev/null to avoid "Broken pipe" warnings
-          (yes 2>/dev/null | ./install.sh 2>&1 | tee install.log) || true
-          
-          # Test dev-tools.sh (optional tools, yes-to-all prompt mode)
+
+          # NONINTERACTIVE=1 makes _ask_user auto-answer "yes" without stdin pipe
+          # This avoids "y" spam from yes command leaking into brew/other subprocesses
+          (./install.sh 2>&1 | tee install.log) || true
+
+          # Test dev-tools.sh (optional tools, non-interactive mode)
           echo ""
           echo "Testing dev-tools.sh on macOS with a clean HOME..."
           chmod +x dev-tools.sh 2>/dev/null || true
-          (yes 2>/dev/null | ./dev-tools.sh 2>&1 | tee dev-tools.log) || true
+          (./dev-tools.sh 2>&1 | tee dev-tools.log) || true
           echo ""
           echo "=== dev-tools.sh log summary ==="
           tail -50 dev-tools.log || true
@@ -121,28 +118,28 @@ jobs:
           echo "=== Installation log summary ==="
           tail -100 install.log || true
           
-          # Validate that interactive prompts are answered "yes" in CI mode
+          # Validate that non-interactive mode auto-answers prompts
           echo ""
-          echo "=== Validating yes-to-all prompt behavior ==="
-          if grep -qiE "(Install Homebrew\?|Install MacPorts\?|Install mas|Install Nix\?)" install.log; then
-            echo "Interactive prompts found - checking for skipped installs..."
+          echo "=== Validating non-interactive prompt behavior ==="
+          if grep -qiE "\[Auto: yes\]" install.log; then
+            echo "Non-interactive auto-yes prompts found - checking for skipped installs..."
             if grep -qiE "Skipping Homebrew installation|Skipping MacPorts installation|Skipping mas installation|Skipping Nix installation" install.log; then
-              echo "ERROR: Detected skipped installations despite yes-to-all mode"
+              echo "ERROR: Detected skipped installations despite non-interactive mode"
               exit 1
             else
               echo "OK: No skipped installations detected"
             fi
           else
-            echo "No interactive prompts found (may be OK if all tools already installed)"
+            echo "No auto-yes prompts found (may be OK if all tools already installed)"
           fi
-          
+
           # Validate dev-tools.sh prompt behavior
           echo ""
-          echo "=== Validating dev-tools.sh yes-to-all behavior ==="
-          if grep -qiE "(Install.*via Homebrew\?|Install.*\?)" dev-tools.log; then
-            echo "Interactive prompts found in dev-tools.sh (yes-to-all mode enabled)"
+          echo "=== Validating dev-tools.sh non-interactive behavior ==="
+          if grep -qiE "\[Auto: yes\]" dev-tools.log; then
+            echo "Non-interactive auto-yes prompts found in dev-tools.sh"
           else
-            echo "No interactive prompts found in dev-tools.sh (may be OK if all tools already installed)"
+            echo "No auto-yes prompts found in dev-tools.sh (may be OK if all tools already installed)"
           fi
           
           # Verify that dev-tools.sh does not try to install system package managers
@@ -225,7 +222,7 @@ jobs:
           # Validate shell config content
           echo ""
           echo "=== Validating shell config content ==="
-          cmp -s zsh.sh "$HOME/.zshrc" || { echo "zsh.sh was not installed to ~/.zshrc as expected"; exit 1; }
+          head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc" | cmp -s zsh.sh - || { echo "zsh.sh was not installed to ~/.zshrc as expected"; exit 1; }
           grep -q "FINAL PATH CLEANUP (FOR .ZPROFILE)" "$HOME/.zprofile" || { echo "Missing PATH cleanup block in ~/.zprofile"; exit 1; }
           grep -q "maintain_system_bin" "$HOME/.zshrc" || { echo "Missing maintain_system_bin in ~/.zshrc"; exit 1; }
           grep -q "alias update=" "$HOME/.zshrc" && echo "update alias definition found in ~/.zshrc" || echo "update alias definition not found (may be conditional)"
@@ -1075,8 +1072,8 @@ jobs:
           echo ""
           echo "Testing re-running install.sh..."
           zsh -lc '
-            # Run install.sh a second time to test idempotency
-            if (yes 2>/dev/null | ./install.sh 2>&1 | tee install2.log); then
+            # Run install.sh a second time to test idempotency (NONINTERACTIVE auto-answers yes)
+            if (./install.sh 2>&1 | tee install2.log); then
               echo "install.sh can be re-run successfully"
             else
               echo "WARNING: install.sh may have issues when re-run"
@@ -1238,8 +1235,8 @@ jobs:
             fi
 
             # Test that zsh.sh was copied to .zshrc correctly
-            if cmp -s zsh.sh "$HOME/.zshrc"; then
-              echo "zsh.sh correctly installed to ~/.zshrc"
+            if head -n "$(wc -l < zsh.sh)" "$HOME/.zshrc" | cmp -s zsh.sh -; then
+              echo "zsh.sh correctly installed to ~/.zshrc (with user customizations section appended)"
             else
               echo "ERROR: zsh.sh not correctly copied to ~/.zshrc"
               exit 1
