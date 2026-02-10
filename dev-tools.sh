@@ -140,6 +140,14 @@ _detect_brew_prefix() {
 
 HOMEBREW_PREFIX="$(_detect_brew_prefix)"
 
+# Ensure Homebrew is in PATH for subsequent commands and installer scripts
+if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+  case ":$PATH:" in
+    *":$HOMEBREW_PREFIX/bin:"*) ;;
+    *) export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$PATH" ;;
+  esac
+fi
+
 # Function to install Conda/Miniforge
 install_conda() {
   local conda_installed=false

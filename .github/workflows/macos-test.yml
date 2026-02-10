@@ -118,12 +118,19 @@ jobs:
           # This avoids "y" spam from yes command leaking into brew/other subprocesses
           (./install.sh 2>&1 | tee install.log) || true
 
-          # Restore Homebrew to PATH after install.sh subshell
+          # Restore tool paths after install.sh subshell (PATH changes are lost in subshell/pipe)
           if [[ -d /opt/homebrew ]]; then
             export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           elif [[ -d /usr/local/Homebrew ]]; then
             export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
           fi
+          # Add ~/.local/bin for maintain-system
+          local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
+          [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+          case ":$PATH:" in
+            *":$local_bin:"*) ;;
+            *) export PATH="$local_bin:$PATH" ;;
+          esac
 
           # Test dev-tools.sh (optional tools, non-interactive mode)
           echo ""
