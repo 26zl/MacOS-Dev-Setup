@@ -1,8 +1,8 @@
 # 🚀 macOS Development Environment Setup
 
-[![Checks](https://github.com/26zl/MacOS_Basic_Setup/workflows/Checks/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
-[![Security Scan](https://github.com/26zl/MacOS_Basic_Setup/workflows/Security%20Scan/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
-[![macOS Test](https://github.com/26zl/MacOS_Basic_Setup/workflows/macOS%20Test/badge.svg)](https://github.com/26zl/MacOS_Basic_Setup/actions)
+[![Checks](https://github.com/26zl/MacOS-Dev-Setup/workflows/Checks/badge.svg)](https://github.com/26zl/MacOS-Dev-Setup/actions)
+[![Security Scan](https://github.com/26zl/MacOS-Dev-Setup/workflows/Security%20Scan/badge.svg)](https://github.com/26zl/MacOS-Dev-Setup/actions)
+[![macOS Test](https://github.com/26zl/MacOS-Dev-Setup/workflows/macOS%20Test/badge.svg)](https://github.com/26zl/MacOS-Dev-Setup/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **One-command setup** for a complete macOS development environment with automated tool management.
@@ -11,9 +11,17 @@
 
 ## 🚀 Quick Start
 
+**One-liner install:**
+
 ```bash
-git clone https://github.com/26zl/MacOS_Basic_Setup.git
-cd MacOS_Basic_Setup
+curl -fsSL https://raw.githubusercontent.com/26zl/MacOS-Dev-Setup/main/bootstrap.sh | zsh
+```
+
+**Or clone manually:**
+
+```bash
+git clone https://github.com/26zl/MacOS-Dev-Setup.git
+cd MacOS-Dev-Setup
 ./install.sh        # Installs shell setup and system package managers
 ./dev-tools.sh      # Installs language tools (optional)
 source ~/.zshrc
@@ -125,6 +133,17 @@ Yes! Automatically detects architecture.
 **What if tools are missing?**  
 The `update` command gracefully skips missing tools and shows installation instructions.
 
+## Compatibility
+
+| Requirement | Details |
+|---|---|
+| **macOS** | macOS 13 Ventura or later (may work on older versions) |
+| **Architecture** | Apple Silicon (M1/M2/M3/M4) and Intel x86_64 |
+| **Shell** | Zsh (default on macOS since Catalina) |
+| **Disk space** | ~15-30GB free (Xcode CLT + Homebrew + dev tools) |
+| **Network** | Required for all installations (downloads from GitHub, Homebrew, etc.) |
+| **Permissions** | Some optional tools (MacPorts, Nix) require sudo |
+
 ## Security
 
 **Security Features**:
@@ -152,7 +171,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ### ⭐ If this project helped you, please consider giving it a star! ⭐
 
-[![GitHub stars](https://img.shields.io/github/stars/26zl/MacOS_Basic_Setup?style=social&label=Star)](https://github.com/26zl/MacOS_Basic_Setup/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/26zl/MacOS_Basic_Setup?style=social&label=Fork)](https://github.com/26zl/MacOS_Basic_Setup/fork)
+[![GitHub stars](https://img.shields.io/github/stars/26zl/MacOS-Dev-Setup?style=social&label=Star)](https://github.com/26zl/MacOS-Dev-Setup/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/26zl/MacOS-Dev-Setup?style=social&label=Fork)](https://github.com/26zl/MacOS-Dev-Setup/fork)
 
 Made with ❤️ for the macOS developer community

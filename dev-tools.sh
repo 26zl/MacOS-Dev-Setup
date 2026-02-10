@@ -10,6 +10,24 @@
 
 set +e  # Allow optional components to fail
 
+# Concurrent-run protection
+LOCK_FILE="/tmp/macos-dev-setup-devtools.lock"
+_acquire_lock() {
+  if [[ -f "$LOCK_FILE" ]]; then
+    local lock_pid=""
+    lock_pid="$(<"$LOCK_FILE")"
+    if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+      echo "ERROR: Another instance of dev-tools.sh is already running (PID $lock_pid)"
+      echo "  If this is a mistake, remove the lock file: rm $LOCK_FILE"
+      exit 1
+    fi
+    rm -f "$LOCK_FILE"
+  fi
+  echo $$ > "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
+}
+_acquire_lock
+
 # Ensure standard Unix tools are in PATH
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
@@ -47,6 +65,11 @@ install_warnings=0
 warn() {
   ((install_warnings++))
   echo "${YELLOW}⚠️  $1${NC}"
+}
+
+# Wrapper for curl with timeouts and retry
+_curl_safe() {
+  curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 "$@"
 }
 
 # Ask user for confirmation with input validation
@@ -323,7 +346,7 @@ install_nvm() {
   
   if _ask_user "${YELLOW}📦 nvm not found. Install nvm?" "Y"; then
     echo "  Installing nvm..."
-    if /usr/bin/curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | /bin/bash; then
+    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | /bin/bash; then
       echo "${GREEN}✅ nvm installed${NC}"
       # Install Node.js LTS after nvm is installed
       if [[ -s "$NVM_DIR/nvm.sh" ]]; then
@@ -540,7 +563,7 @@ install_rustup() {
   
   if _ask_user "${YELLOW}📦 rustup not found. Install rustup (Rust toolchain manager)?" "Y"; then
     echo "  Installing rustup..."
-    if /usr/bin/curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | /bin/sh -s -- -y; then
+    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | /bin/sh -s -- -y; then
       echo "${GREEN}✅ rustup installed${NC}"
       # Source cargo env if available
       if [[ -f "$HOME/.cargo/env" ]]; then
@@ -640,7 +663,7 @@ install_swiftly() {
   
   if _ask_user "${YELLOW}📦 swiftly not found. Install swiftly (Swift toolchain manager)?" "N"; then
     echo "  Installing swiftly..."
-    if /usr/bin/curl -fsSL https://swiftlang.org/swiftly-install.sh | /bin/bash; then
+    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -fsSL https://swiftlang.org/swiftly-install.sh | /bin/bash; then
       echo "${GREEN}✅ swiftly installed${NC}"
       # Install latest Swift after swiftly is installed
       echo "  ${BLUE}INFO:${NC} Installing latest Swift via swiftly..."

@@ -4,6 +4,25 @@
 
 set +e  # Allow optional components to fail (will be set per function)
 
+# Concurrent-run protection
+LOCK_FILE="/tmp/macos-dev-setup-install.lock"
+_acquire_lock() {
+  if [[ -f "$LOCK_FILE" ]]; then
+    local lock_pid=""
+    lock_pid="$(<"$LOCK_FILE")"
+    if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+      echo "ERROR: Another instance of install.sh is already running (PID $lock_pid)"
+      echo "  If this is a mistake, remove the lock file: rm $LOCK_FILE"
+      exit 1
+    fi
+    # Stale lock file - previous run crashed
+    rm -f "$LOCK_FILE"
+  fi
+  echo $$ > "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
+}
+_acquire_lock
+
 echo "🚀 macOS Development Environment Setup - Installation"
 echo "======================================================"
 echo ""
@@ -19,6 +38,11 @@ install_warnings=0
 warn() {
   ((install_warnings++))
   echo "${YELLOW}⚠️  $1${NC}"
+}
+
+# Wrapper for curl with timeouts and retry
+_curl_safe() {
+  curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 "$@"
 }
 
 # Ask user for confirmation with input validation
@@ -75,6 +99,19 @@ _ask_user() {
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "${RED}❌ Error: This script is designed for macOS only${NC}"
   exit 1
+fi
+
+# Check available disk space (need ~15GB minimum for Xcode CLT + Homebrew + tools)
+if command -v df >/dev/null 2>&1; then
+  available_gb=$(df -g / 2>/dev/null | awk 'NR==2 {print $4}')
+  if [[ -n "$available_gb" ]] && [[ "$available_gb" -lt 15 ]]; then
+    echo "${YELLOW}⚠️  WARNING: Low disk space detected (${available_gb}GB available)${NC}"
+    echo "  ${BLUE}INFO:${NC} A full installation (Xcode CLT + Homebrew + dev tools) may need ~15-30GB"
+    if ! _ask_user "Continue with limited disk space?" "N" 2>/dev/null; then
+      echo "Exiting. Free up disk space and try again."
+      exit 1
+    fi
+  fi
 fi
 
 # Detect Homebrew installation prefix
@@ -188,7 +225,7 @@ install_homebrew() {
     echo "  ${BLUE}INFO:${NC} The installation process will be shown below:"
     echo ""
     echo "  Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    /bin/bash -c "$(_curl_safe -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     HOMEBREW_PREFIX="$(_detect_brew_prefix)"
     if [[ -n "$HOMEBREW_PREFIX" ]]; then
       echo ""
@@ -209,7 +246,7 @@ install_homebrew() {
 install_oh_my_zsh() {
   if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     echo "${YELLOW}📦 Installing Oh My Zsh...${NC}"
-    if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc; then
+    if sh -c "$(_curl_safe -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc; then
       echo "${GREEN}✅ Oh My Zsh installed${NC}"
     else
       warn "Oh My Zsh installation failed"
@@ -317,6 +354,8 @@ install_mas() {
 # Function to install MacPorts
 install_macports() {
   if ! command -v port >/dev/null 2>&1; then
+    echo "  ${BLUE}INFO:${NC} MacPorts builds from source and takes ~20-60 minutes"
+    echo "  ${BLUE}INFO:${NC} Requires sudo (you will be prompted for your password)"
     if _ask_user "${YELLOW}📦 MacPorts not found. Install MacPorts?" "N"; then
       echo ""
       echo "${YELLOW}⚠️  IMPORTANT: Please follow the MacPorts installation carefully${NC}"
@@ -353,13 +392,19 @@ install_macports() {
         fi
       fi
       
-      # Get latest MacPorts version
+      # Get latest MacPorts version dynamically (no hardcoded fallback)
       echo "  Fetching latest MacPorts version..."
-      local macports_version="2.11.6"  # Default fallback
+      local macports_version=""
       local latest_url
-      latest_url=$(curl -s https://distfiles.macports.org/MacPorts/ | grep -oE 'MacPorts-[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2' | sort -V | tail -1 || echo "")
+      latest_url=$(_curl_safe -s https://distfiles.macports.org/MacPorts/ | grep -oE 'MacPorts-[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2' | sort -V | tail -1 || echo "")
       if [[ -n "$latest_url" ]]; then
         macports_version=$(echo "$latest_url" | sed 's/MacPorts-\(.*\)\.tar\.bz2/\1/')
+      fi
+      if [[ -z "$macports_version" ]]; then
+        echo "  ${RED}❌ Failed to determine latest MacPorts version${NC}"
+        echo "  ${BLUE}INFO:${NC} This may be a network issue. Check your connection and try again."
+        echo "  ${BLUE}INFO:${NC} Or install manually: https://www.macports.org/install.php"
+        return 1
       fi
       
       local macports_tarball="MacPorts-${macports_version}.tar.bz2"
@@ -376,7 +421,7 @@ install_macports() {
         return 1
       fi
       
-      if curl -fsSL -o "$macports_tarball" "$macports_url"; then
+      if _curl_safe -fsSL -o "$macports_tarball" "$macports_url"; then
         echo "  Extracting source code..."
         if tar xf "$macports_tarball"; then
           if ! cd "MacPorts-${macports_version}" 2>/dev/null; then
@@ -484,6 +529,8 @@ install_nix() {
     return 0
   fi
   
+  echo "  ${BLUE}INFO:${NC} Nix installs system-wide as a daemon and may take 10-20 minutes"
+  echo "  ${BLUE}INFO:${NC} Requires sudo (you will be prompted for your password)"
   if _ask_user "${YELLOW}📦 Nix not found. Install Nix?" "N"; then
     echo ""
     echo "${YELLOW}⚠️  IMPORTANT: Please follow the Nix installation carefully${NC}"
@@ -511,7 +558,7 @@ install_nix() {
     
     # Run Nix installer and capture exit code
     local install_exit=0
-    sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon || install_exit=$?
+    sh <(_curl_safe --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon || install_exit=$?
     
     # Return to original directory
     cd "$original_dir" 2>/dev/null || true
@@ -717,29 +764,52 @@ ZPROFILE_EOF
 # Function to backup and install zsh config
 install_zsh_config() {
   local zshrc_backup="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
-  
-  if [[ -f "$HOME/.zshrc" ]]; then
-    echo "${YELLOW}📦 Backing up existing .zshrc to $zshrc_backup...${NC}"
-    cp "$HOME/.zshrc" "$zshrc_backup"
-    echo "${GREEN}✅ Backup created${NC}"
-  fi
-  
+  local user_customizations=""
+  local MANAGED_MARKER="# Managed by macOS Development Environment Setup"
+
   # Use REPO_ROOT that was detected at script start
   local script_dir="$REPO_ROOT"
-  
+
   # Fallback: try to detect again if REPO_ROOT not set or file not found
   if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/zsh.sh" ]]; then
     script_dir="$(_detect_repo_root)"
   fi
-  
-  if [[ -n "$script_dir" ]] && [[ -f "$script_dir/zsh.sh" ]]; then
-    echo "${YELLOW}📦 Installing zsh configuration...${NC}"
-    cp "$script_dir/zsh.sh" "$HOME/.zshrc"
-    echo "${GREEN}✅ zsh configuration installed${NC}"
-  else
+
+  if [[ -z "$script_dir" ]] || [[ ! -f "$script_dir/zsh.sh" ]]; then
     echo "${RED}❌ Error: zsh.sh not found in $script_dir${NC}"
     echo "  REPO_ROOT: ${REPO_ROOT:-not set}"
     exit 1
+  fi
+
+  if [[ -f "$HOME/.zshrc" ]]; then
+    # Extract user customizations added after our managed config
+    if grep -q "# USER CUSTOMIZATIONS" "$HOME/.zshrc" 2>/dev/null; then
+      user_customizations="$(sed -n '/^# USER CUSTOMIZATIONS/,$ p' "$HOME/.zshrc")"
+    fi
+
+    echo "${YELLOW}📦 Backing up existing .zshrc to $zshrc_backup...${NC}"
+    cp "$HOME/.zshrc" "$zshrc_backup"
+    echo "${GREEN}✅ Backup created${NC}"
+  fi
+
+  echo "${YELLOW}📦 Installing zsh configuration...${NC}"
+  cp "$script_dir/zsh.sh" "$HOME/.zshrc"
+
+  # Append user customizations marker and any previously saved customizations
+  if [[ -n "$user_customizations" ]]; then
+    echo "" >> "$HOME/.zshrc"
+    echo "$user_customizations" >> "$HOME/.zshrc"
+    echo "${GREEN}✅ zsh configuration installed (user customizations preserved)${NC}"
+    echo "  ${BLUE}INFO:${NC} Your custom additions in the '# USER CUSTOMIZATIONS' section were kept"
+  else
+    echo "" >> "$HOME/.zshrc"
+    echo "" >> "$HOME/.zshrc"
+    echo "# USER CUSTOMIZATIONS" >> "$HOME/.zshrc"
+    echo "# Add your personal shell customizations below this line." >> "$HOME/.zshrc"
+    echo "# This section is preserved when install.sh re-runs." >> "$HOME/.zshrc"
+    echo "${GREEN}✅ zsh configuration installed${NC}"
+    echo "  ${BLUE}INFO:${NC} Add personal customizations below '# USER CUSTOMIZATIONS' in ~/.zshrc"
+    echo "  ${BLUE}INFO:${NC} That section is preserved if you re-run install.sh"
   fi
 }
 

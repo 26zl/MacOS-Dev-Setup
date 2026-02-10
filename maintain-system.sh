@@ -1033,20 +1033,24 @@ update() {
     local brew_cask_upgraded=false
     local brew_upgrade_formula_output=""
     local brew_upgrade_formula_exit_code=0
-    brew_upgrade_formula_output="$(brew upgrade 2>&1)" || brew_upgrade_formula_exit_code=$?
+    local brew_upgrade_tmpfile=""
+    brew_upgrade_tmpfile="$(mktemp)" || brew_upgrade_tmpfile="/tmp/brew_upgrade_$$"
+
+    # Stream output in real-time so user sees progress, while also capturing for post-processing
+    brew upgrade 2>&1 | tee "$brew_upgrade_tmpfile" | sed 's/^/    /' || brew_upgrade_formula_exit_code=${PIPESTATUS[0]:-$pipestatus[1]}
+    brew_upgrade_formula_output="$(<"$brew_upgrade_tmpfile")"
+    rm -f "$brew_upgrade_tmpfile"
 
     if [[ $brew_upgrade_formula_exit_code -eq 0 ]]; then
       # Check if output indicates packages were actually upgraded
       if echo "$brew_upgrade_formula_output" | grep -qiE "(Already up-to-date|Nothing to upgrade|All formulae are up to date|No outdated packages|0 outdated packages)"; then
         echo "  ${BLUE}INFO:${NC} Homebrew formulae are already up to date"
       else
-        # Show concise details of what was upgraded
         local brew_upgrade_summary=""
         brew_upgrade_summary="$(echo "$brew_upgrade_formula_output" | grep -E '^(==> (Upgrading|Installing|Pouring)|^Upgraded |^[[:alnum:]][[:alnum:].+@-]* +[0-9][^ ]* +-> +[0-9])' || true)"
         if [[ -n "$brew_upgrade_summary" ]]; then
           brew_formula_upgraded=true
           echo "  Homebrew formulae upgraded successfully"
-          echo "$brew_upgrade_summary" | sed 's/^/    /'
         else
           echo "  ${BLUE}INFO:${NC} Homebrew formulae checked (no changes detected)"
         fi
@@ -1059,7 +1063,13 @@ update() {
     # Upgrade casks greedily so GUI apps are updated automatically
     local brew_upgrade_cask_output=""
     local brew_upgrade_cask_exit_code=0
-    brew_upgrade_cask_output="$(brew upgrade --cask --greedy 2>&1)" || brew_upgrade_cask_exit_code=$?
+    local brew_upgrade_cask_tmpfile=""
+    brew_upgrade_cask_tmpfile="$(mktemp)" || brew_upgrade_cask_tmpfile="/tmp/brew_upgrade_cask_$$"
+
+    # Stream output in real-time so user sees progress, while also capturing for post-processing
+    brew upgrade --cask --greedy 2>&1 | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /' || brew_upgrade_cask_exit_code=${PIPESTATUS[0]:-$pipestatus[1]}
+    brew_upgrade_cask_output="$(<"$brew_upgrade_cask_tmpfile")"
+    rm -f "$brew_upgrade_cask_tmpfile"
 
     if [[ $brew_upgrade_cask_exit_code -eq 0 ]]; then
       if echo "$brew_upgrade_cask_output" | grep -qiE "(Already up-to-date|Nothing to upgrade|All casks are up to date|No outdated casks|0 outdated casks)"; then
@@ -1070,7 +1080,6 @@ update() {
         if [[ -n "$brew_upgrade_cask_summary" ]]; then
           brew_cask_upgraded=true
           echo "  Homebrew casks upgraded successfully"
-          echo "$brew_upgrade_cask_summary" | sed 's/^/    /'
         else
           echo "  ${BLUE}INFO:${NC} Homebrew casks checked (no changes detected)"
         fi
@@ -3156,6 +3165,21 @@ versions() {
 }
 
 # ================================ MAIN =====================================
+# Concurrent-run protection
+LOCK_FILE="/tmp/macos-dev-setup-maintain.lock"
+if [[ -f "$LOCK_FILE" ]]; then
+  lock_pid=""
+  lock_pid="$(<"$LOCK_FILE")"
+  if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+    echo "ERROR: Another instance of maintain-system is already running (PID $lock_pid)"
+    echo "  If this is a mistake, remove the lock file: rm $LOCK_FILE"
+    exit 1
+  fi
+  rm -f "$LOCK_FILE"
+fi
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
+
 # Dispatch based on command argument
 case "${1:-}" in
   update)
