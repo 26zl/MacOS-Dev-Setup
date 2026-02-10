@@ -1037,9 +1037,11 @@ update() {
     brew_upgrade_tmpfile="$(mktemp)" || brew_upgrade_tmpfile="/tmp/brew_upgrade_$$"
 
     # Stream output in real-time so user sees progress, while also capturing for post-processing
-    brew upgrade 2>&1 | tee "$brew_upgrade_tmpfile" | sed 's/^/    /' || brew_upgrade_formula_exit_code=${pipestatus[1]}
+    local brew_upgrade_exitfile="$brew_upgrade_tmpfile.exit"
+    { brew upgrade 2>&1; echo $? > "$brew_upgrade_exitfile"; } | tee "$brew_upgrade_tmpfile" | sed 's/^/    /'
+    brew_upgrade_formula_exit_code=$(<"$brew_upgrade_exitfile")
     brew_upgrade_formula_output="$(<"$brew_upgrade_tmpfile")"
-    rm -f "$brew_upgrade_tmpfile"
+    rm -f "$brew_upgrade_tmpfile" "$brew_upgrade_exitfile"
 
     if [[ $brew_upgrade_formula_exit_code -eq 0 ]]; then
       # Check if output indicates packages were actually upgraded
@@ -1067,9 +1069,11 @@ update() {
     brew_upgrade_cask_tmpfile="$(mktemp)" || brew_upgrade_cask_tmpfile="/tmp/brew_upgrade_cask_$$"
 
     # Stream output in real-time so user sees progress, while also capturing for post-processing
-    brew upgrade --cask --greedy 2>&1 | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /' || brew_upgrade_cask_exit_code=${pipestatus[1]}
+    local brew_upgrade_cask_exitfile="$brew_upgrade_cask_tmpfile.exit"
+    { brew upgrade --cask --greedy 2>&1; echo $? > "$brew_upgrade_cask_exitfile"; } | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /'
+    brew_upgrade_cask_exit_code=$(<"$brew_upgrade_cask_exitfile")
     brew_upgrade_cask_output="$(<"$brew_upgrade_cask_tmpfile")"
-    rm -f "$brew_upgrade_cask_tmpfile"
+    rm -f "$brew_upgrade_cask_tmpfile" "$brew_upgrade_cask_exitfile"
 
     if [[ $brew_upgrade_cask_exit_code -eq 0 ]]; then
       if echo "$brew_upgrade_cask_output" | grep -qiE "(Already up-to-date|Nothing to upgrade|All casks are up to date|No outdated casks|0 outdated casks)"; then
