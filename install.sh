@@ -23,6 +23,9 @@ _acquire_lock() {
 }
 _acquire_lock
 
+# Ensure standard Unix tools are in PATH (curl, git, etc.)
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
 echo "🚀 macOS Development Environment Setup - Installation"
 echo "======================================================"
 echo ""
@@ -239,6 +242,14 @@ install_homebrew() {
     fi
   else
     echo "${GREEN}✅ Homebrew found at: $HOMEBREW_PREFIX${NC}"
+  fi
+
+  # Ensure Homebrew is in PATH for subsequent commands
+  if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+    case ":$PATH:" in
+      *":$HOMEBREW_PREFIX/bin:"*) ;;
+      *) export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$PATH" ;;
+    esac
   fi
 }
 

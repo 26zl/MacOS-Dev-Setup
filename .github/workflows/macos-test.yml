@@ -94,6 +94,18 @@ jobs:
           echo "NONINTERACTIVE=${NONINTERACTIVE:-not set}"
           echo "CI=${CI:-not set}"
 
+          # Preflight: verify essential tools are available
+          echo ""
+          echo "=== Preflight checks ==="
+          if command -v curl >/dev/null 2>&1; then
+            echo "curl found: $(command -v curl)"
+          elif command -v wget >/dev/null 2>&1; then
+            echo "wget found: $(command -v wget)"
+          else
+            echo "ERROR: Neither curl nor wget found"
+            exit 1
+          fi
+
           # Install project
           echo ""
           echo "Testing install.sh on macOS with a clean HOME..."
@@ -105,6 +117,13 @@ jobs:
           # NONINTERACTIVE=1 makes _ask_user auto-answer "yes" without stdin pipe
           # This avoids "y" spam from yes command leaking into brew/other subprocesses
           (./install.sh 2>&1 | tee install.log) || true
+
+          # Restore Homebrew to PATH after install.sh subshell
+          if [[ -d /opt/homebrew ]]; then
+            export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          elif [[ -d /usr/local/Homebrew ]]; then
+            export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
+          fi
 
           # Test dev-tools.sh (optional tools, non-interactive mode)
           echo ""
