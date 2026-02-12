@@ -2571,17 +2571,15 @@ verify() {
       local active_py="$(pyenv version-name 2>/dev/null || true)"
       local latest_py="$(_pyenv_latest_installed)"
       if [[ -n "$active_py" && "$active_py" != "system" ]]; then
-        local pyenv_python_version="$(pyenv exec python3 -V 2>/dev/null || echo "Python $active_py")"
-        ok "Python" "$pyenv_python_version (pyenv)"
+        ok "Python" "Python $active_py (pyenv)"
         # Check for Homebrew python that differs from pyenv
         local brew_python=""
         local brew_pfx="$(_detect_brew_prefix)"
         if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/python3" ]]; then
           brew_python="$("$brew_pfx/bin/python3" -V 2>/dev/null || true)"
         fi
-        local pyenv_py_short="${pyenv_python_version#Python }"
         local brew_py_short="${brew_python#Python }"
-        if [[ -n "$brew_python" && "$brew_py_short" != "$pyenv_py_short" ]]; then
+        if [[ -n "$brew_python" && "$brew_py_short" != "$active_py" ]]; then
           echo "  ${BLUE}INFO:${NC} Homebrew python3 is $brew_python"
         fi
       else
@@ -2931,17 +2929,15 @@ versions() {
     if command -v pyenv >/dev/null 2>&1; then
       local active_py="$(pyenv version-name 2>/dev/null || true)"
       if [[ -n "$active_py" && "$active_py" != "system" ]]; then
-        local pyenv_python_version="$(pyenv exec python3 -V 2>/dev/null || echo "Python $active_py")"
-        echo "Python ......... $pyenv_python_version (pyenv)"
+        echo "Python ......... Python $active_py (pyenv)"
         # Check for Homebrew python that differs from pyenv
         local brew_python=""
         local brew_pfx="$(_detect_brew_prefix)"
         if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/python3" ]]; then
           brew_python="$("$brew_pfx/bin/python3" -V 2>/dev/null || true)"
         fi
-        local pyenv_py_short="${pyenv_python_version#Python }"
         local brew_py_short="${brew_python#Python }"
-        if [[ -n "$brew_python" && "$brew_py_short" != "$pyenv_py_short" ]]; then
+        if [[ -n "$brew_python" && "$brew_py_short" != "$active_py" ]]; then
           echo "               (Homebrew: $brew_python)"
         fi
       else
