@@ -2061,10 +2061,19 @@ update() {
       
       if [[ -n "$swift_target_version" ]]; then
         echo "  Latest available: Swift $swift_target_version"
-        # Use --assume-yes to avoid prompts, and --use to set as active
-        if swiftly install "$swift_target_version" --assume-yes --use 2>/dev/null; then
-          echo "  SUCCESS: Updated to Swift $swift_target_version"
+        # Use --assume-yes to avoid prompts
+        if swiftly install "$swift_target_version" --assume-yes 2>/dev/null; then
+          # Explicitly switch active toolchain (--use on install may not switch when already installed)
+          swiftly use "$swift_target_version" 2>/dev/null || true
           hash -r 2>/dev/null || true
+          # Verify the switch actually happened
+          local verify_active="$(swiftly list 2>/dev/null | grep '(in use)' || true)"
+          if [[ "$verify_active" == *"$swift_target_version"* ]]; then
+            echo "  SUCCESS: Updated to Swift $swift_target_version"
+          else
+            echo "  ${RED}WARNING:${NC} Installed Swift $swift_target_version but active toolchain may not have switched"
+            echo "  ${BLUE}INFO:${NC} Run 'swiftly use $swift_target_version' manually to switch"
+          fi
         else
           echo "  ${RED}WARNING:${NC} Failed to install Swift $swift_target_version"
         fi
@@ -2557,7 +2566,31 @@ verify() {
 
   local pybin="$(command -v python3 || command -v python || true)"
   if [[ -n "$pybin" ]]; then
-    ok "Python" "$("$pybin" -V 2>/dev/null)"
+    # When pyenv is active with a non-system version, show pyenv-managed version as primary
+    if command -v pyenv >/dev/null 2>&1; then
+      local active_py="$(pyenv version-name 2>/dev/null || true)"
+      local latest_py="$(_pyenv_latest_installed)"
+      if [[ -n "$active_py" && "$active_py" != "system" ]]; then
+        local pyenv_python_version="$(pyenv exec python3 -V 2>/dev/null || echo "Python $active_py")"
+        ok "Python" "$pyenv_python_version (pyenv)"
+        # Check for Homebrew python that differs from pyenv
+        local brew_python=""
+        local brew_pfx="$(_detect_brew_prefix)"
+        if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/python3" ]]; then
+          brew_python="$("$brew_pfx/bin/python3" -V 2>/dev/null || true)"
+        fi
+        local pyenv_py_short="${pyenv_python_version#Python }"
+        local brew_py_short="${brew_python#Python }"
+        if [[ -n "$brew_python" && "$brew_py_short" != "$pyenv_py_short" ]]; then
+          echo "  ${BLUE}INFO:${NC} Homebrew python3 is $brew_python"
+        fi
+      else
+        ok "Python" "$("$pybin" -V 2>/dev/null)"
+      fi
+      [[ -n "$latest_py" && "$active_py" == "$latest_py" ]] && ok "pyenv" "active $active_py" || warn "pyenv" "active ${active_py:-unknown}; latest ${latest_py:-unknown}"
+    else
+      ok "Python" "$("$pybin" -V 2>/dev/null)"
+    fi
     # Check for pip (try pip, pip3, or python3 -m pip)
     local pip_cmd=""
     if command -v pip >/dev/null 2>&1; then
@@ -2571,11 +2604,6 @@ verify() {
       ok "pip" "$($pip_cmd --version 2>/dev/null | head -n1 || echo "available")"
     else
       warn "pip" "not in PATH"
-    fi
-    if command -v pyenv >/dev/null 2>&1; then
-      local active_py="$(pyenv version-name 2>/dev/null || true)"
-      local latest_py="$(_pyenv_latest_installed)"
-      [[ -n "$latest_py" && "$active_py" == "$latest_py" ]] && ok "pyenv" "active $active_py" || warn "pyenv" "active ${active_py:-unknown}; latest ${latest_py:-unknown}"
     fi
     command -v pipx >/dev/null 2>&1 && ok "pipx" "$(pipx --version 2>/dev/null || echo "installed")"
     if command -v conda >/dev/null 2>&1; then
@@ -2622,28 +2650,46 @@ verify() {
     fi
   fi
 
-  if command -v node >/dev/null 2>&1; then
-    ok "Node" "$(node -v)"
-    command -v npm >/dev/null 2>&1 && ok "npm" "$(npm -v)" || warn "npm" "not in PATH"
-    # nvm is a shell function, check with type
-    if type nvm >/dev/null 2>&1 || [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
-      # Source nvm if needed
-      if ! type nvm >/dev/null 2>&1; then
-        [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]] && source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" 2>/dev/null || true
+  # nvm is a shell function, check with type
+  local nvm_loaded=false
+  if type nvm >/dev/null 2>&1; then
+    nvm_loaded=true
+  elif [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
+    source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" 2>/dev/null && nvm_loaded=true || true
+  fi
+
+  if command -v node >/dev/null 2>&1 || [[ "$nvm_loaded" == "true" ]]; then
+    # When nvm is active with a non-system version, show nvm-managed version as primary
+    if [[ "$nvm_loaded" == "true" ]]; then
+      local nvm_current="$(nvm current 2>/dev/null || true)"
+      local defv="$(nvm version default 2>/dev/null || true)"
+      if [[ -n "$nvm_current" && "$nvm_current" != "system" && "$nvm_current" != "N/A" && "$nvm_current" != "none" ]]; then
+        ok "Node" "$nvm_current (nvm)"
+        # Check for Homebrew node that differs from nvm
+        local brew_node=""
+        local brew_pfx="$(_detect_brew_prefix)"
+        if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/node" ]]; then
+          brew_node="$("$brew_pfx/bin/node" -v 2>/dev/null || true)"
+        fi
+        if [[ -n "$brew_node" && "$brew_node" != "$nvm_current" ]]; then
+          echo "  ${BLUE}INFO:${NC} Homebrew node is $brew_node"
+        fi
+      else
+        if command -v node >/dev/null 2>&1; then
+          ok "Node" "$(node -v)"
+        else
+          warn "Node" "not installed (nvm active but no version selected)"
+        fi
       fi
-      if type nvm >/dev/null 2>&1; then
-        local current="$(nvm current 2>/dev/null || true)"
-        local defv="$(nvm version default 2>/dev/null || true)"
-        [[ -n "$defv" && "$current" == "$defv" ]] && ok "nvm" "current $current" || warn "nvm" "current ${current:-N/A}; default ${defv:-N/A}"
-      fi
+      command -v npm >/dev/null 2>&1 && ok "npm" "$(npm -v)" || warn "npm" "not in PATH"
+      [[ -n "$defv" && "$nvm_current" == "$defv" ]] && ok "nvm" "current $nvm_current" || warn "nvm" "current ${nvm_current:-N/A}; default ${defv:-N/A}"
+    else
+      ok "Node" "$(node -v)"
+      command -v npm >/dev/null 2>&1 && ok "npm" "$(npm -v)" || warn "npm" "not in PATH"
     fi
   else
-    if type nvm >/dev/null 2>&1 || [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
-      warn "Node" "not installed (run 'update' to install)"
-    else
-      miss "Node"
-      echo "  ${BLUE}INFO:${NC} To install Node.js and nvm, run: ./dev-tools.sh"
-    fi
+    miss "Node"
+    echo "  ${BLUE}INFO:${NC} To install Node.js and nvm, run: ./dev-tools.sh"
   fi
 
   if command -v rustc >/dev/null 2>&1; then
@@ -2881,7 +2927,30 @@ versions() {
   fi
 
   if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
-    echo "Python ......... $(python3 -V 2>/dev/null || python -V 2>/dev/null)"
+    # When pyenv is active with a non-system version, show pyenv-managed version as primary
+    if command -v pyenv >/dev/null 2>&1; then
+      local active_py="$(pyenv version-name 2>/dev/null || true)"
+      if [[ -n "$active_py" && "$active_py" != "system" ]]; then
+        local pyenv_python_version="$(pyenv exec python3 -V 2>/dev/null || echo "Python $active_py")"
+        echo "Python ......... $pyenv_python_version (pyenv)"
+        # Check for Homebrew python that differs from pyenv
+        local brew_python=""
+        local brew_pfx="$(_detect_brew_prefix)"
+        if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/python3" ]]; then
+          brew_python="$("$brew_pfx/bin/python3" -V 2>/dev/null || true)"
+        fi
+        local pyenv_py_short="${pyenv_python_version#Python }"
+        local brew_py_short="${brew_python#Python }"
+        if [[ -n "$brew_python" && "$brew_py_short" != "$pyenv_py_short" ]]; then
+          echo "               (Homebrew: $brew_python)"
+        fi
+      else
+        echo "Python ......... $(python3 -V 2>/dev/null || python -V 2>/dev/null)"
+      fi
+      echo "pyenv .......... $active_py"
+    else
+      echo "Python ......... $(python3 -V 2>/dev/null || python -V 2>/dev/null)"
+    fi
     if command -v pip >/dev/null 2>&1; then
       local pip_version="$(pip -V | awk '{print $2}')"
       local pip_count="$(pip list 2>/dev/null | tail -n +3 | wc -l | tr -d ' ' || echo "0")"
@@ -2895,7 +2964,6 @@ versions() {
       local pip_count="$(python3 -m pip list 2>/dev/null | tail -n +3 | wc -l | tr -d ' ' || echo "0")"
       echo "pip ............ $pip_version ($pip_count packages)"
     fi
-    command -v pyenv >/dev/null 2>&1 && echo "pyenv .......... $(pyenv version-name 2>/dev/null)" || true
     if command -v pipx >/dev/null 2>&1; then
       local pipx_version="$(pipx --version 2>/dev/null || echo "installed")"
       local pipx_count="$(pipx list --short 2>/dev/null | grep -v '^$' | wc -l | tr -d ' ' || echo "0")"
@@ -2949,22 +3017,40 @@ versions() {
     echo "Python ......... not installed"
   fi
 
-  if command -v node >/dev/null 2>&1; then
-    echo "Node.js ........ $(node -v)"
+  # nvm is a shell function, check with type
+  local nvm_loaded=false
+  if type nvm >/dev/null 2>&1; then
+    nvm_loaded=true
+  elif [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
+    source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" 2>/dev/null && nvm_loaded=true || true
+  fi
+
+  if command -v node >/dev/null 2>&1 || [[ "$nvm_loaded" == "true" ]]; then
+    # When nvm is active with a non-system version, show nvm-managed version as primary
+    if [[ "$nvm_loaded" == "true" ]]; then
+      local nvm_current="$(nvm current 2>/dev/null || true)"
+      if [[ -n "$nvm_current" && "$nvm_current" != "system" && "$nvm_current" != "N/A" && "$nvm_current" != "none" ]]; then
+        echo "Node.js ........ $nvm_current (nvm)"
+        # Check for Homebrew node that differs from nvm
+        local brew_node=""
+        local brew_pfx="$(_detect_brew_prefix)"
+        if [[ -n "$brew_pfx" && -x "$brew_pfx/bin/node" ]]; then
+          brew_node="$("$brew_pfx/bin/node" -v 2>/dev/null || true)"
+        fi
+        if [[ -n "$brew_node" && "$brew_node" != "$nvm_current" ]]; then
+          echo "               (Homebrew: $brew_node)"
+        fi
+      else
+        echo "Node.js ........ $(node -v 2>/dev/null || echo "not installed")"
+      fi
+      echo "nvm ............ ${nvm_current:-not active}"
+    else
+      echo "Node.js ........ $(node -v)"
+    fi
     if command -v npm >/dev/null 2>&1; then
       local npm_version="$(npm -v)"
       local npm_count="$(npm list -g --depth=0 2>/dev/null | tail -n +2 | wc -l | tr -d ' ' || echo "0")"
       echo "npm ............ $npm_version ($npm_count global packages)"
-    fi
-    # nvm is a shell function, check with type
-    if type nvm >/dev/null 2>&1 || [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
-      # Source nvm if needed
-      if ! type nvm >/dev/null 2>&1; then
-        [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]] && source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" 2>/dev/null || true
-      fi
-      if type nvm >/dev/null 2>&1; then
-        echo "nvm ............ $(nvm current 2>/dev/null || echo "not active")"
-      fi
     fi
   else
     echo "Node.js ........ not installed"
