@@ -66,7 +66,7 @@ echo "${BLUE}INFO:${NC} Core setup complete."
 echo ""
 echo "Optional: Install development language tools (Python, Node.js, Rust, Go, etc.)?"
 echo -n "[y/N]: "
-read -r response
+read -r response </dev/tty
 case "$response" in
   [Yy]|[Yy][Ee][Ss])
     chmod +x dev-tools.sh

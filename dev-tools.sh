@@ -67,11 +67,6 @@ warn() {
   echo "${YELLOW}⚠️  $1${NC}"
 }
 
-# Wrapper for curl with timeouts and retry
-_curl_safe() {
-  curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 "$@"
-}
-
 # Ask user for confirmation with input validation
 _ask_user() {
   local prompt="$1"
@@ -138,6 +133,7 @@ _detect_brew_prefix() {
   fi
 }
 
+# Cache Homebrew prefix once at script start (used throughout)
 HOMEBREW_PREFIX="$(_detect_brew_prefix)"
 
 # Ensure Homebrew is in PATH for subsequent commands and installer scripts
@@ -158,7 +154,6 @@ install_conda() {
   fi
   
   # Check if conda/miniforge is installed via Homebrew
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list --cask miniforge >/dev/null 2>&1 || \
        "$HOMEBREW_PREFIX/bin/brew" list --cask anaconda >/dev/null 2>&1 || \
@@ -200,7 +195,6 @@ install_pipx() {
   fi
   
   # Check if pipx is installed via Homebrew
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list pipx >/dev/null 2>&1; then
       pipx_installed=true
@@ -285,7 +279,6 @@ install_pyenv() {
     return 0
   fi
   
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if _ask_user "${YELLOW}📦 pyenv not found. Install pyenv via Homebrew?" "Y"; then
       if "$HOMEBREW_PREFIX/bin/brew" install pyenv; then
@@ -300,7 +293,7 @@ install_pyenv() {
           # Note: eval is required for pyenv initialization (standard practice)
           eval "$(pyenv init -)" 2>/dev/null || true
         fi
-        # Wait a moment for pyenv to be ready
+        # Brief delay for pyenv shims to initialize after sourcing
         sleep 1
         local latest_python
         latest_python=$(pyenv install --list 2>/dev/null | /usr/bin/grep -E "^\s+3\.[0-9]+\.[0-9]+$" | /usr/bin/grep -v "dev\|a\|b\|rc" | /usr/bin/tail -1 | /usr/bin/xargs)
@@ -354,7 +347,12 @@ install_nvm() {
   
   if _ask_user "${YELLOW}📦 nvm not found. Install nvm?" "Y"; then
     echo "  Installing nvm..."
-    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | /bin/bash; then
+    # Get latest nvm version dynamically from GitHub API
+    local nvm_version=""
+    nvm_version="$(/usr/bin/curl -fsSL --connect-timeout 10 https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null | /usr/bin/grep '"tag_name"' | /usr/bin/sed -E 's/.*"([^"]+)".*/\1/' || echo "v0.40.1")"
+    [[ -z "$nvm_version" || ! "$nvm_version" =~ ^v[0-9] ]] && nvm_version="v0.40.1"
+    echo "  ${BLUE}INFO:${NC} Installing nvm $nvm_version..."
+    if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | /bin/bash; then
       echo "${GREEN}✅ nvm installed${NC}"
       # Install Node.js LTS after nvm is installed
       if [[ -s "$NVM_DIR/nvm.sh" ]]; then
@@ -392,14 +390,12 @@ install_chruby() {
   )
   
   # Also check via Homebrew prefix
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]]; then
     possible_paths+=("$HOMEBREW_PREFIX/share/chruby/chruby.sh")
     possible_paths+=("$HOMEBREW_PREFIX/opt/chruby/share/chruby/chruby.sh")
   fi
   
   # Check if chruby is installed via Homebrew (most reliable method)
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list chruby >/dev/null 2>&1; then
       chruby_installed=true
@@ -651,8 +647,8 @@ install_swiftly() {
       latest_swift=$(swiftly list-available 2>/dev/null | /usr/bin/grep -E '^Swift [0-9]+\.[0-9]+\.[0-9]+' | /usr/bin/awk '{print $2}' | /usr/bin/sort -V | /usr/bin/tail -1)
       if [[ -n "$latest_swift" && "$latest_swift" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "  ${BLUE}INFO:${NC} Installing Swift $latest_swift (this may take a few minutes)..."
-        if swiftly install "$latest_swift" 2>/dev/null; then
-          swiftly use "$latest_swift" 2>/dev/null || true
+        if swiftly install --assume-yes "$latest_swift" 2>/dev/null; then
+          swiftly use --assume-yes "$latest_swift" 2>/dev/null || true
           echo "  ${GREEN}✅ Swift $latest_swift installed and activated${NC}"
         else
           echo "  ${YELLOW}⚠️  Failed to install Swift via swiftly (you can install manually later with: swiftly install <version>)${NC}"
@@ -663,12 +659,12 @@ install_swiftly() {
     fi
     return 0
   fi
-  
+
   if [[ "$CHECK_MODE" == true ]]; then
     echo "${YELLOW}📦 swiftly: Would install via curl${NC}"
     return 0
   fi
-  
+
   if _ask_user "${YELLOW}📦 swiftly not found. Install swiftly (Swift toolchain manager)?" "N"; then
     echo "  Installing swiftly..."
     if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -fsSL https://swiftlang.org/swiftly-install.sh | /bin/bash; then
@@ -680,8 +676,8 @@ install_swiftly() {
       latest_swift=$(swiftly list-available 2>/dev/null | /usr/bin/grep -E '^Swift [0-9]+\.[0-9]+\.[0-9]+' | /usr/bin/awk '{print $2}' | /usr/bin/sort -V | /usr/bin/tail -1)
       if [[ -n "$latest_swift" && "$latest_swift" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "  ${BLUE}INFO:${NC} Installing Swift $latest_swift (this may take a few minutes)..."
-        if swiftly install "$latest_swift" 2>/dev/null; then
-          swiftly use "$latest_swift" 2>/dev/null || true
+        if swiftly install --assume-yes "$latest_swift" 2>/dev/null; then
+          swiftly use --assume-yes "$latest_swift" 2>/dev/null || true
           echo "  ${GREEN}✅ Swift $latest_swift installed and activated${NC}"
         else
           echo "  ${YELLOW}⚠️  Failed to install Swift via swiftly (you can install manually later with: swiftly install <version>)${NC}"
@@ -705,7 +701,6 @@ install_go() {
   fi
   
   # Check if Go is installed via Homebrew
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list go >/dev/null 2>&1; then
       go_installed=true
@@ -745,7 +740,6 @@ install_java() {
   fi
   
   # Check if Java/OpenJDK is installed via Homebrew
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list openjdk >/dev/null 2>&1 || \
        "$HOMEBREW_PREFIX/bin/brew" list --cask temurin >/dev/null 2>&1 || \
@@ -788,7 +782,6 @@ install_dotnet() {
   fi
   
   # Check if .NET SDK is installed via Homebrew
-  HOMEBREW_PREFIX="$(_detect_brew_prefix)"
   if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
     if "$HOMEBREW_PREFIX/bin/brew" list --cask dotnet-sdk >/dev/null 2>&1 || \
        "$HOMEBREW_PREFIX/bin/brew" list --cask dotnet >/dev/null 2>&1; then
@@ -851,8 +844,7 @@ test_detection() {
       ((all_found++))
     else
       # Check via Homebrew for tools that might be installed there
-      HOMEBREW_PREFIX="$(_detect_brew_prefix)"
-      local found_via_brew=false
+          local found_via_brew=false
       
       if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
         case "$tool" in

@@ -1033,26 +1033,23 @@ update() {
     local brew_cask_upgraded=false
     local brew_upgrade_formula_output=""
     local brew_upgrade_formula_exit_code=0
-    local brew_upgrade_tmpfile=""
-    brew_upgrade_tmpfile="$(mktemp)" || brew_upgrade_tmpfile="/tmp/brew_upgrade_$$"
 
-    # Stream output in real-time so user sees progress, while also capturing for post-processing
-    local brew_upgrade_exitfile="$brew_upgrade_tmpfile.exit"
-    { brew upgrade 2>&1; echo $? > "$brew_upgrade_exitfile"; } | tee "$brew_upgrade_tmpfile" | sed 's/^/    /'
-    brew_upgrade_formula_exit_code=$(<"$brew_upgrade_exitfile")
-    brew_upgrade_formula_output="$(<"$brew_upgrade_tmpfile")"
-    rm -f "$brew_upgrade_tmpfile" "$brew_upgrade_exitfile"
+    # Capture output quietly and show summary
+    brew_upgrade_formula_output="$(brew upgrade 2>&1)" || brew_upgrade_formula_exit_code=$?
 
     if [[ $brew_upgrade_formula_exit_code -eq 0 ]]; then
       # Check if output indicates packages were actually upgraded
       if echo "$brew_upgrade_formula_output" | grep -qiE "(Already up-to-date|Nothing to upgrade|All formulae are up to date|No outdated packages|0 outdated packages)"; then
         echo "  ${BLUE}INFO:${NC} Homebrew formulae are already up to date"
       else
-        local brew_upgrade_summary=""
-        brew_upgrade_summary="$(echo "$brew_upgrade_formula_output" | grep -E '^(==> (Upgrading|Installing|Pouring)|^Upgraded |^[[:alnum:]][[:alnum:].+@-]* +[0-9][^ ]* +-> +[0-9])' || true)"
-        if [[ -n "$brew_upgrade_summary" ]]; then
+        # Extract what was upgraded
+        local upgraded_list=""
+        upgraded_list="$(echo "$brew_upgrade_formula_output" | grep -E '^==> Upgrading [[:alnum:]]' | sed 's/==> Upgrading //' || true)"
+        if [[ -n "$upgraded_list" ]]; then
           brew_formula_upgraded=true
-          echo "  Homebrew formulae upgraded successfully"
+          local upgraded_count
+          upgraded_count="$(echo "$upgraded_list" | wc -l | tr -d ' ')"
+          echo "  Upgraded $upgraded_count formula(e): $(echo "$upgraded_list" | tr '\n' ' ' | sed 's/ $//')"
         else
           echo "  ${BLUE}INFO:${NC} Homebrew formulae checked (no changes detected)"
         fi
@@ -1065,25 +1062,22 @@ update() {
     # Upgrade casks greedily so GUI apps are updated automatically
     local brew_upgrade_cask_output=""
     local brew_upgrade_cask_exit_code=0
-    local brew_upgrade_cask_tmpfile=""
-    brew_upgrade_cask_tmpfile="$(mktemp)" || brew_upgrade_cask_tmpfile="/tmp/brew_upgrade_cask_$$"
 
-    # Stream output in real-time so user sees progress, while also capturing for post-processing
-    local brew_upgrade_cask_exitfile="$brew_upgrade_cask_tmpfile.exit"
-    { brew upgrade --cask --greedy 2>&1; echo $? > "$brew_upgrade_cask_exitfile"; } | tee "$brew_upgrade_cask_tmpfile" | sed 's/^/    /'
-    brew_upgrade_cask_exit_code=$(<"$brew_upgrade_cask_exitfile")
-    brew_upgrade_cask_output="$(<"$brew_upgrade_cask_tmpfile")"
-    rm -f "$brew_upgrade_cask_tmpfile" "$brew_upgrade_cask_exitfile"
+    # Capture output quietly and show summary
+    brew_upgrade_cask_output="$(brew upgrade --cask --greedy 2>&1)" || brew_upgrade_cask_exit_code=$?
 
     if [[ $brew_upgrade_cask_exit_code -eq 0 ]]; then
       if echo "$brew_upgrade_cask_output" | grep -qiE "(Already up-to-date|Nothing to upgrade|All casks are up to date|No outdated casks|0 outdated casks)"; then
         echo "  ${BLUE}INFO:${NC} Homebrew casks are already up to date"
       else
-        local brew_upgrade_cask_summary=""
-        brew_upgrade_cask_summary="$(echo "$brew_upgrade_cask_output" | grep -E '^(==> (Upgrading|Installing|Pouring|Downloading)|^Upgraded |^[[:alnum:]][[:alnum:].+@-]* +[0-9][^ ]* +-> +[0-9])' || true)"
-        if [[ -n "$brew_upgrade_cask_summary" ]]; then
+        # Extract what was upgraded
+        local upgraded_cask_list=""
+        upgraded_cask_list="$(echo "$brew_upgrade_cask_output" | grep -E '^==> Upgrading [[:alnum:]]' | sed 's/==> Upgrading //' || true)"
+        if [[ -n "$upgraded_cask_list" ]]; then
           brew_cask_upgraded=true
-          echo "  Homebrew casks upgraded successfully"
+          local upgraded_cask_count
+          upgraded_cask_count="$(echo "$upgraded_cask_list" | wc -l | tr -d ' ')"
+          echo "  Upgraded $upgraded_cask_count cask(s): $(echo "$upgraded_cask_list" | tr '\n' ' ' | sed 's/ $//')"
         else
           echo "  ${BLUE}INFO:${NC} Homebrew casks checked (no changes detected)"
         fi

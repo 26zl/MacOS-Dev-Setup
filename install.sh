@@ -652,8 +652,8 @@ setup_maintain_system() {
 
 # Function to setup Nix PATH
 setup_nix_path() {
-  # Check if Nix is installed
-  if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
+  # Check if Nix is installed (same conditions as install_nix)
+  if command -v nix >/dev/null 2>&1 || [[ -d /nix ]] || [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
     echo "${YELLOW}📦 Setting up Nix PATH...${NC}"
     
     # Use REPO_ROOT that was detected at script start
@@ -750,10 +750,8 @@ if [[ -d /opt/local/bin ]] && [[ -x /opt/local/bin/port ]]; then
 fi
 
 # Add Nix to PATH if installed
-if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
-  if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
-    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
-  fi
+if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+  source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
 fi
 
 # Final PATH reordering: Ensure Homebrew is ALWAYS first, even after Nix
@@ -863,10 +861,8 @@ refresh_environment() {
   fi
   
   # Add Nix to PATH if installed
-  if [[ -d /nix ]] && [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
-    if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
-      source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
-    fi
+  if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
+    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
   fi
   
   # Verify critical commands are now available
