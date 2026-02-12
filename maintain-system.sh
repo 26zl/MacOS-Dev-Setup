@@ -1508,8 +1508,11 @@ update() {
           echo "  ${RED}WARNING:${NC} Force upgrade also failed"
         fi
       fi
+    else
+      echo "${GREEN}[pipx]${NC} Not found - skipping"
+      echo "  ${BLUE}INFO:${NC} To install pipx, run: ./dev-tools.sh"
     fi
-    
+
     # Update miniforge/conda packages
     if command -v conda >/dev/null 2>&1; then
       echo "${GREEN}[conda/miniforge]${NC} Updating conda and packages..."
@@ -1651,6 +1654,9 @@ update() {
             echo "  conda issues: ${conda_errors[*]}"
           fi
         fi
+      else
+        echo "${GREEN}[conda]${NC} Not found - skipping"
+        echo "  ${BLUE}INFO:${NC} To install conda, run: ./dev-tools.sh"
       fi
     fi
     
@@ -1695,8 +1701,11 @@ update() {
     
     # Refresh command hash table after Python package updates
     hash -r 2>/dev/null || true
+  else
+    echo "${GREEN}[Python]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install Python, run: ./dev-tools.sh"
   fi
-  
+
   if command -v pyenv >/dev/null 2>&1 && [[ -n "$pyenv_target" && "$pyenv_target" != "system" ]]; then
     if _is_disabled "${MAINTAIN_SYSTEM_CLEAN_PYENV:-}"; then
       echo "${GREEN}[pyenv]${NC} Cleanup disabled; set MAINTAIN_SYSTEM_CLEAN_PYENV=1 or unset to enable"
@@ -1728,7 +1737,6 @@ update() {
     fi
   fi
 
-  echo "${GREEN}[Node]${NC} Ensuring latest LTS..."
   # nvm is a shell function, not a command - check if it's available
   local nvm_available=false
   if type nvm >/dev/null 2>&1 || [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
@@ -1740,8 +1748,9 @@ update() {
       nvm_available=true
     fi
   fi
-  
+
   if [[ "$nvm_available" == "true" ]]; then
+    echo "${GREEN}[Node]${NC} Ensuring latest LTS..."
     local prev_nvm="$(nvm current 2>/dev/null || true)"
     nvm install --lts --latest-npm || true
     nvm alias default 'lts/*' || true
@@ -1787,7 +1796,11 @@ update() {
       fi
     fi
   elif [[ "$nvm_available" != "true" ]] && command -v brew >/dev/null 2>&1 && brew list node >/dev/null 2>&1; then
+    echo "${GREEN}[Node]${NC} Updating Node via Homebrew..."
     brew upgrade node || true
+  else
+    echo "${GREEN}[Node]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install Node.js, run: ./dev-tools.sh"
   fi
   
   if command -v npm >/dev/null 2>&1; then
@@ -1932,8 +1945,11 @@ update() {
     else
       _fix_all_ruby_gems
     fi
+  else
+    echo "${GREEN}[chruby]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install chruby, run: ./dev-tools.sh"
   fi
-  
+
   if [[ "$chruby_available" == "true" ]] && [[ -n "$chruby_target" ]]; then
     local rubies_root="$HOME/.rubies"
     if [[ -d "$rubies_root" ]]; then
@@ -1975,6 +1991,9 @@ update() {
   # Go
   if command -v go >/dev/null 2>&1; then
     _go_update_toolchain || true
+  else
+    echo "${GREEN}[Go]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install Go, run: ./dev-tools.sh"
   fi
 
   # Swift
@@ -2139,8 +2158,8 @@ update() {
       echo "  ${BLUE}INFO:${NC} Install swiftly: curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && installer -pkg swiftly.pkg -target CurrentUserHomeDirectory"
     fi
   else
-    echo "${GREEN}[Swift]${NC} Swift not found"
-    echo "  ${BLUE}INFO:${NC} Install swiftly: curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && installer -pkg swiftly.pkg -target CurrentUserHomeDirectory"
+    echo "${GREEN}[Swift]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install Swift, run: ./dev-tools.sh"
   fi
 
   # Rust - use rustup for comprehensive updates
@@ -2202,6 +2221,9 @@ update() {
     if [[ ${#rust_errors[@]} -gt 0 ]]; then
       echo "  Rust issues: ${rust_errors[*]}"
     fi
+  else
+    echo "${GREEN}[Rust]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install Rust, run: ./dev-tools.sh"
   fi
 
   # Cargo (Rust package manager) - update globally installed packages
@@ -2305,6 +2327,9 @@ update() {
       echo "  .NET issues: ${dotnet_errors[*]}"
       echo "  ${BLUE}INFO:${NC} If .NET was installed via official installer, update manually from: https://dotnet.microsoft.com/download"
     fi
+  else
+    echo "${GREEN}[.NET]${NC} Not found - skipping"
+    echo "  ${BLUE}INFO:${NC} To install .NET SDK, run: ./dev-tools.sh"
   fi
 
   # Check for mas - skip if missing (install via install.sh)
@@ -2637,7 +2662,10 @@ verify() {
           break
         fi
       done
-      [[ "$conda_found" == false ]] && warn "conda" "not in PATH"
+      if [[ "$conda_found" == false ]]; then
+        miss "conda"
+        echo "  ${BLUE}INFO:${NC} To install conda, run: ./dev-tools.sh"
+      fi
     fi
   else
     if command -v pyenv >/dev/null 2>&1; then
@@ -2818,14 +2846,16 @@ verify() {
     ok "Homebrew" "$brew_version"
   else
     miss "Homebrew"
+    echo "  ${BLUE}INFO:${NC} To install Homebrew, run: ./install.sh"
   fi
   if command -v port >/dev/null 2>&1; then
     local port_version="$(port version 2>/dev/null || echo "installed")"
     ok "MacPorts" "$port_version"
   else
     warn "MacPorts" "not installed"
+    echo "  ${BLUE}INFO:${NC} To install MacPorts, run: ./install.sh"
   fi
-  
+
   # mas (Mac App Store CLI)
   if command -v mas >/dev/null 2>&1; then
     local mas_version="$(mas version 2>/dev/null || echo "installed")"
@@ -2838,8 +2868,9 @@ verify() {
     fi
   else
     miss "mas"
+    echo "  ${BLUE}INFO:${NC} To install mas, run: ./install.sh"
   fi
-  
+
   # Nix - comprehensive status check
   if command -v nix >/dev/null 2>&1; then
     local nix_version="$(nix --version 2>/dev/null | head -n1 | sed 's/nix (Nix) //' || echo "unknown")"
@@ -2865,9 +2896,10 @@ verify() {
       warn "Nix" "installed but not in PATH (run: ./scripts/nix-macos-maintenance.sh ensure-path or reinstall)"
     else
       miss "Nix"
+      echo "  ${BLUE}INFO:${NC} To install Nix, run: ./install.sh"
     fi
   fi
-  
+
   if command -v mongod >/dev/null 2>&1; then
     local mongodb_version="$(mongod --version 2>/dev/null | head -n1 | sed 's/db version //' || echo "unknown")"
     local mongodb_status="stopped"
@@ -2899,7 +2931,12 @@ verify() {
 versions() {
   _ensure_system_path
   echo "${GREEN}================== TOOL VERSIONS ==================${NC}"
-  command -v ruby >/dev/null 2>&1 && echo "Ruby ........... $(ruby -v)" || echo "Ruby ........... not installed"
+  if command -v ruby >/dev/null 2>&1; then
+    echo "Ruby ........... $(ruby -v)"
+  else
+    echo "Ruby ........... not installed"
+    echo "  To install: ./dev-tools.sh"
+  fi
   command -v gem  >/dev/null 2>&1 && echo "Gem ............ $(gem -v)" || true
   # Check for chruby (shell function)
   local chruby_check=false
@@ -3011,6 +3048,7 @@ versions() {
     fi
   else
     echo "Python ......... not installed"
+    echo "  To install: ./dev-tools.sh"
   fi
 
   # nvm is a shell function, check with type
@@ -3050,9 +3088,15 @@ versions() {
     fi
   else
     echo "Node.js ........ not installed"
+    echo "  To install: ./dev-tools.sh"
   fi
 
-  command -v rustc >/dev/null 2>&1 && echo "Rust ........... $(rustc -V)" || echo "Rust ........... not installed"
+  if command -v rustc >/dev/null 2>&1; then
+    echo "Rust ........... $(rustc -V)"
+  else
+    echo "Rust ........... not installed"
+    echo "  To install: ./dev-tools.sh"
+  fi
   command -v rustup >/dev/null 2>&1 && echo "rustup ......... $(rustup show active-toolchain 2>/dev/null | head -n1)" || true
   if command -v cargo >/dev/null 2>&1; then
     local cargo_version="$(cargo --version 2>/dev/null || echo "installed")"
@@ -3073,8 +3117,9 @@ versions() {
     echo ".NET ........... $dotnet_info"
   else
     echo ".NET ........... not installed"
+    echo "  To install: ./dev-tools.sh"
   fi
-  
+
   if command -v swift >/dev/null 2>&1; then
     local swift_version="$(swift --version 2>/dev/null | head -n1 | sed 's/.*version //' | cut -d' ' -f1 || echo "unknown")"
     local swift_info="$swift_version"
@@ -3105,17 +3150,38 @@ versions() {
     fi
   else
     echo "Swift .......... not installed"
+    echo "  To install: ./dev-tools.sh"
     if command -v swiftly >/dev/null 2>&1; then
       local swiftly_installed
       swiftly_installed="$(swiftly list 2>/dev/null | head -n1 || echo "")"
       [[ -n "$swiftly_installed" ]] && echo "swiftly ........ installed (Swift not in PATH)" || echo "swiftly ........ installed (not initialized)"
     fi
   fi
-  
-  command -v go   >/dev/null 2>&1 && echo "Go ............. $(go version)" || echo "Go ............. not installed"
-  command -v java >/dev/null 2>&1 && echo "Java ........... $(java -version 2>&1 | head -n1)" || echo "Java ........... not installed"
-  command -v clang >/dev/null 2>&1 && echo "Clang .......... $(clang --version | head -n1)" || echo "Clang .......... not installed"
-  command -v gcc  >/dev/null 2>&1 && echo "GCC ............ $(gcc --version | head -n1)" || echo "GCC ............ not installed"
+
+  if command -v go >/dev/null 2>&1; then
+    echo "Go ............. $(go version)"
+  else
+    echo "Go ............. not installed"
+    echo "  To install: ./dev-tools.sh"
+  fi
+  if command -v java >/dev/null 2>&1; then
+    echo "Java ........... $(java -version 2>&1 | head -n1)"
+  else
+    echo "Java ........... not installed"
+    echo "  To install: ./dev-tools.sh"
+  fi
+  if command -v clang >/dev/null 2>&1; then
+    echo "Clang .......... $(clang --version | head -n1)"
+  else
+    echo "Clang .......... not installed"
+    echo "  To install: xcode-select --install"
+  fi
+  if command -v gcc >/dev/null 2>&1; then
+    echo "GCC ............ $(gcc --version | head -n1)"
+  else
+    echo "GCC ............ not installed"
+    echo "  To install: xcode-select --install"
+  fi
 
   # Detect MySQL dynamically
   local mysql_found=false
@@ -3167,6 +3233,7 @@ versions() {
     echo "Homebrew ....... $brew_version ($brew_count formulae)"
   else
     echo "Homebrew ....... not installed"
+    echo "  To install: ./install.sh"
   fi
   if command -v port >/dev/null 2>&1; then
     local port_version="$(port version)"
@@ -3174,8 +3241,9 @@ versions() {
     echo "MacPorts ....... $port_version ($port_count ports)"
   else
     echo "MacPorts ....... not installed"
+    echo "  To install: ./install.sh"
   fi
-  
+
   # mas (Mac App Store CLI)
   if command -v mas >/dev/null 2>&1; then
     local mas_version="$(mas version 2>/dev/null || echo "installed")"
@@ -3188,8 +3256,9 @@ versions() {
     fi
   else
     echo "mas ............. not installed"
+    echo "  To install: ./install.sh"
   fi
-  
+
   # Nix
   if command -v nix >/dev/null 2>&1; then
     local nix_version
@@ -3214,8 +3283,9 @@ versions() {
     fi
   else
     echo "Nix ............. not installed"
+    echo "  To install: ./install.sh"
   fi
-  
+
   if command -v mongod >/dev/null 2>&1; then
     local mongodb_version
     mongodb_version="$(mongod --version 2>/dev/null | head -n1 | sed 's/db version //' || echo "unknown")"

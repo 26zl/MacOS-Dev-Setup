@@ -337,25 +337,17 @@ install_mas() {
   if ! command -v mas >/dev/null 2>&1; then
     # Update HOMEBREW_PREFIX in case it was just installed
     HOMEBREW_PREFIX="$(_detect_brew_prefix)"
-    
+
     if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
-      if _ask_user "${YELLOW}📦 mas (Mac App Store CLI) not found. Install mas via Homebrew?" "Y"; then
-        echo "  Installing mas via Homebrew..."
-        if "$HOMEBREW_PREFIX/bin/brew" install mas; then
-          echo "${GREEN}✅ mas installed${NC}"
-          echo "  ${BLUE}INFO:${NC} Sign in to App Store to use mas: open -a 'App Store'"
-        else
-          warn "mas installation failed (try: brew install mas)"
-        fi
+      echo "${YELLOW}📦 Installing mas (Mac App Store CLI) via Homebrew...${NC}"
+      if "$HOMEBREW_PREFIX/bin/brew" install mas; then
+        echo "${GREEN}✅ mas installed${NC}"
+        echo "  ${BLUE}INFO:${NC} Sign in to App Store to use mas: open -a 'App Store'"
       else
-        echo "${YELLOW}⚠️  Skipping mas installation${NC}"
+        warn "mas installation failed (try: brew install mas)"
       fi
     else
-      if [[ -z "$HOMEBREW_PREFIX" ]]; then
-        echo "${YELLOW}⚠️  mas requires Homebrew. Install Homebrew first.${NC}"
-      else
-        warn "mas not found. Install it manually: brew install mas"
-      fi
+      warn "mas requires Homebrew. Install Homebrew first."
     fi
   else
     echo "${GREEN}✅ mas already installed${NC}"
@@ -365,9 +357,10 @@ install_mas() {
 # Function to install MacPorts
 install_macports() {
   if ! command -v port >/dev/null 2>&1; then
+    echo "${YELLOW}📦 Installing MacPorts from source...${NC}"
     echo "  ${BLUE}INFO:${NC} MacPorts builds from source and takes ~20-60 minutes"
     echo "  ${BLUE}INFO:${NC} Requires sudo (you will be prompted for your password)"
-    if _ask_user "${YELLOW}📦 MacPorts not found. Install MacPorts?" "N"; then
+    {
       echo ""
       echo "${YELLOW}⚠️  IMPORTANT: Please follow the MacPorts installation carefully${NC}"
       echo "  ${BLUE}INFO:${NC} This will install MacPorts from source via CLI"
@@ -520,9 +513,7 @@ install_macports() {
       # Cleanup - return to original directory safely
       cd "$original_dir" 2>/dev/null || cd "$HOME" 2>/dev/null || true
       rm -rf "$temp_dir" 2>/dev/null || true
-    else
-      echo "${YELLOW}⚠️  Skipping MacPorts installation${NC}"
-    fi
+    }
   else
     echo "${GREEN}✅ MacPorts already installed${NC}"
   fi

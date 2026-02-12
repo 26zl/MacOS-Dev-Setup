@@ -70,7 +70,7 @@ read -r response </dev/tty
 case "$response" in
   [Yy]|[Yy][Ee][Ss])
     chmod +x dev-tools.sh
-    ./dev-tools.sh
+    NONINTERACTIVE=1 ./dev-tools.sh
     ;;
   *)
     echo "${BLUE}INFO:${NC} Skipped. You can run dev-tools.sh later from the repo."
