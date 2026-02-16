@@ -2463,11 +2463,13 @@ update() {
       echo "  ${RED}WARNING:${NC} Nix store cleanup failed"
     fi
     
-    # Optimise store
+    # Optimise store (may require sudo for hardlinking in /nix/store)
     if nix store optimise 2>/dev/null; then
       echo "  Nix store optimised successfully"
+    elif sudo nix store optimise 2>/dev/null; then
+      echo "  Nix store optimised successfully (via sudo)"
     else
-      echo "  ${RED}WARNING:${NC} Nix store optimisation had issues (may require sudo)"
+      echo "  ${RED}WARNING:${NC} Nix store optimisation failed"
     fi
     
     # Smart Nix CLI upgrade check (preview and auto-skip downgrades)
