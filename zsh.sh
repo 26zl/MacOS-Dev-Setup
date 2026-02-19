@@ -413,6 +413,7 @@ if [[ -x "$maintain_system_bin" ]]; then
   alias update="$maintain_system_bin update"
   alias verify="$maintain_system_bin verify"
   alias versions="$maintain_system_bin versions"
+  alias upgrade="$maintain_system_bin upgrade"
 fi
 
 # ================================ Swiftly ===================================
@@ -425,6 +426,40 @@ fi
 fzf_config="${XDG_CONFIG_HOME:-$HOME/.config}/fzf/fzf.zsh"
 [[ -f "$fzf_config" ]] || fzf_config="$HOME/.fzf.zsh"
 [[ -f "$fzf_config" ]] && source "$fzf_config"
+
+# ================================ UPDATE CHECK =============================
+# Check for macOS Dev Setup updates (async, max once per 24h)
+if [[ "${MACOS_DEV_SETUP_UPDATE_CHECK:-1}" != "0" ]]; then
+  _macos_dev_setup_data="$HOME/.local/share/macos-dev-setup"
+  # Show notification if cached versions differ (sync, <1ms - just file reads)
+  if [[ -f "$_macos_dev_setup_data/version" ]] && [[ -f "$_macos_dev_setup_data/latest-remote-version" ]]; then
+    _local_ver="$(<"$_macos_dev_setup_data/version")"
+    _remote_ver="$(<"$_macos_dev_setup_data/latest-remote-version")"
+    if [[ -n "$_local_ver" ]] && [[ -n "$_remote_ver" ]] && [[ "$_local_ver" != "$_remote_ver" ]]; then
+      echo "\033[0;34m[macOS Dev Setup]\033[0m Update available: $_local_ver -> $_remote_ver"
+      echo "  Run: \033[0;32mmaintain-system upgrade\033[0m"
+    fi
+    unset _local_ver _remote_ver
+  fi
+  # Background check: fetch latest version from GitHub API (async, no shell delay)
+  if [[ -f "$_macos_dev_setup_data/version" ]]; then
+    _last_check=0
+    [[ -f "$_macos_dev_setup_data/last-update-check" ]] && _last_check="$(<"$_macos_dev_setup_data/last-update-check")"
+    _now="$(date +%s)"
+    if (( _now - _last_check > 86400 )); then
+      (
+        # Always update timestamp to avoid retrying on every shell start
+        date +%s > "$_macos_dev_setup_data/last-update-check"
+        _latest="$(curl -s --max-time 5 https://api.github.com/repos/26zl/MacOS-Dev-Setup/releases/latest 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+        if [[ -n "$_latest" ]]; then
+          echo "$_latest" > "$_macos_dev_setup_data/latest-remote-version"
+        fi
+      ) & disown 2>/dev/null
+    fi
+    unset _last_check _now
+  fi
+  unset _macos_dev_setup_data
+fi
 
 # ================================ FINAL PATH CLEANUP =======================
 # Clean PATH at the very end to catch any duplicates added by plugins or tools

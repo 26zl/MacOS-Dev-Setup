@@ -615,6 +615,28 @@ setup_maintain_system() {
     cp "$script_dir/maintain-system.sh" "$local_bin/maintain-system"
     chmod +x "$local_bin/maintain-system"
     
+    # Store version and script files for self-update
+    local data_dir="$HOME/.local/share/macos-dev-setup"
+    mkdir -p "$data_dir"
+
+    # Detect current version from git tags or GitHub API
+    local current_version=""
+    if [[ -d "$script_dir/.git" ]] && command -v git >/dev/null 2>&1; then
+      current_version="$(cd "$script_dir" && git describe --tags --always 2>/dev/null || echo "")"
+    fi
+    if [[ -z "$current_version" ]]; then
+      # Fallback: query GitHub API for latest release tag
+      current_version="$(curl -s --max-time 5 https://api.github.com/repos/26zl/MacOS-Dev-Setup/releases/latest 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' || echo "")"
+    fi
+    if [[ -n "$current_version" ]]; then
+      echo "$current_version" > "$data_dir/version"
+    fi
+
+    # Copy scripts to data dir for reference
+    for script_file in install.sh dev-tools.sh bootstrap.sh zsh.sh maintain-system.sh; do
+      [[ -f "$script_dir/$script_file" ]] && cp "$script_dir/$script_file" "$data_dir/$script_file"
+    done
+
     # Verify installation
     if [[ -x "$local_bin/maintain-system" ]]; then
       # Normalize path for display (remove ../ if present)

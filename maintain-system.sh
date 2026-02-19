@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 # maintain-system - Standalone system and dev environment maintenance script
-# Usage: maintain-system [update|verify|versions]
+# Usage: maintain-system [update|verify|versions|upgrade]
 
 # Colors for output
 readonly GREEN='\033[0;32m'
@@ -3316,6 +3316,174 @@ versions() {
   return 0
 }
 
+# ================================ SELF-UPGRADE =============================
+
+readonly GITHUB_REPO="26zl/MacOS-Dev-Setup"
+readonly DATA_DIR="$HOME/.local/share/macos-dev-setup"
+
+_self_upgrade() {
+  echo "${GREEN}=== macOS Dev Setup - Self-Upgrade ===${NC}"
+  echo ""
+
+  # Read local version
+  local local_version=""
+  if [[ -f "$DATA_DIR/version" ]]; then
+    local_version="$(<"$DATA_DIR/version")"
+  fi
+
+  if [[ -z "$local_version" ]]; then
+    echo "${RED}❌ No local version found${NC}"
+    echo "  Run install.sh first to set up version tracking."
+    return 1
+  fi
+
+  echo "Current version: ${BLUE}$local_version${NC}"
+
+  # Fetch latest release from GitHub API
+  echo "Checking for updates..."
+  local api_response=""
+  api_response="$(curl -s --max-time 10 "https://api.github.com/repos/$GITHUB_REPO/releases/latest" 2>/dev/null)"
+  if [[ -z "$api_response" ]]; then
+    echo "${RED}❌ Failed to reach GitHub API${NC}"
+    return 1
+  fi
+
+  local remote_version=""
+  remote_version="$(echo "$api_response" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+  if [[ -z "$remote_version" ]]; then
+    echo "${RED}❌ Could not parse latest release version${NC}"
+    echo "  Check https://github.com/$GITHUB_REPO/releases"
+    return 1
+  fi
+
+  echo "Latest version:  ${BLUE}$remote_version${NC}"
+
+  # Compare versions
+  if [[ "$local_version" == "$remote_version" ]]; then
+    echo ""
+    echo "${GREEN}✅ Already up to date${NC}"
+    # Clear cached remote version
+    rm -f "$DATA_DIR/latest-remote-version"
+    return 0
+  fi
+
+  echo ""
+  echo "Upgrading ${BLUE}$local_version${NC} -> ${BLUE}$remote_version${NC}"
+
+  # Get zipball URL
+  local zipball_url=""
+  zipball_url="$(echo "$api_response" | sed -n 's/.*"zipball_url": *"\([^"]*\)".*/\1/p')"
+  if [[ -z "$zipball_url" ]]; then
+    echo "${RED}❌ Could not find download URL${NC}"
+    return 1
+  fi
+
+  # Download and extract
+  local tmp_dir=""
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"; rm -f "$LOCK_FILE"' EXIT INT TERM HUP
+
+  echo "Downloading release..."
+  if ! curl -sL --max-time 30 "$zipball_url" -o "$tmp_dir/release.zip" 2>/dev/null; then
+    echo "${RED}❌ Download failed${NC}"
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  if ! unzip -q "$tmp_dir/release.zip" -d "$tmp_dir" 2>/dev/null; then
+    echo "${RED}❌ Failed to extract release${NC}"
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  # Find the extracted directory (GitHub zips contain a single top-level dir)
+  local extract_dir=""
+  extract_dir="$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)"
+  if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
+    echo "${RED}❌ Unexpected archive structure${NC}"
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  # Track failures
+  local upgrade_failed=false
+
+  # Update maintain-system binary
+  local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
+  [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+  if [[ -f "$extract_dir/maintain-system.sh" ]]; then
+    if cp "$extract_dir/maintain-system.sh" "$local_bin/maintain-system" && chmod +x "$local_bin/maintain-system"; then
+      echo "  Updated: maintain-system"
+    else
+      echo "  ${RED}Failed: maintain-system (check permissions on $local_bin)${NC}"
+      upgrade_failed=true
+    fi
+  fi
+
+  # Update zsh.sh -> ~/.zshrc (preserve user customizations)
+  if [[ -f "$extract_dir/zsh.sh" ]]; then
+    local zshrc="$HOME/.zshrc"
+    if [[ -f "$zshrc" ]]; then
+      # Backup existing .zshrc
+      cp "$zshrc" "$zshrc.backup-$(date +%Y%m%d%H%M%S)"
+
+      # Preserve USER CUSTOMIZATIONS section if it exists
+      local user_section=""
+      if grep -q "# USER CUSTOMIZATIONS" "$zshrc" 2>/dev/null; then
+        user_section="$(sed -n '/# USER CUSTOMIZATIONS/,$p' "$zshrc")"
+      fi
+
+      if cp "$extract_dir/zsh.sh" "$zshrc"; then
+        # Re-append user customizations if they existed
+        if [[ -n "$user_section" ]]; then
+          echo "" >> "$zshrc"
+          echo "$user_section" >> "$zshrc"
+        fi
+        echo "  Updated: ~/.zshrc (backup created)"
+      else
+        echo "  ${RED}Failed: ~/.zshrc (check permissions)${NC}"
+        upgrade_failed=true
+      fi
+    else
+      if cp "$extract_dir/zsh.sh" "$zshrc"; then
+        echo "  Updated: ~/.zshrc"
+      else
+        echo "  ${RED}Failed: ~/.zshrc (check permissions)${NC}"
+        upgrade_failed=true
+      fi
+    fi
+  fi
+
+  # Copy scripts to data dir
+  mkdir -p "$DATA_DIR"
+  for script_file in install.sh dev-tools.sh bootstrap.sh zsh.sh maintain-system.sh; do
+    if [[ -f "$extract_dir/$script_file" ]]; then
+      cp "$extract_dir/$script_file" "$DATA_DIR/$script_file" || true
+    fi
+  done
+
+  # Cleanup temp dir
+  rm -rf "$tmp_dir"
+
+  # Only update version if all critical copies succeeded
+  if [[ "$upgrade_failed" == true ]]; then
+    echo ""
+    echo "${RED}❌ Upgrade incomplete - version not updated${NC}"
+    echo "  Fix the errors above and run upgrade again."
+    return 1
+  fi
+
+  # Update version file
+  echo "$remote_version" > "$DATA_DIR/version"
+
+  # Clear cached remote version (removes notification)
+  rm -f "$DATA_DIR/latest-remote-version"
+
+  echo ""
+  echo "${GREEN}✅ Upgraded to $remote_version${NC}"
+  echo "  Restart your terminal to apply changes."
+}
+
 # ================================ MAIN =====================================
 # Concurrent-run protection
 LOCK_FILE="/tmp/macos-dev-setup-maintain.lock"
@@ -3343,13 +3511,17 @@ case "${1:-}" in
   versions)
     versions
     ;;
+  upgrade|self-update)
+    _self_upgrade
+    ;;
   *)
-    echo "Usage: maintain-system [update|verify|versions]"
+    echo "Usage: maintain-system [update|verify|versions|upgrade]"
     echo ""
     echo "Commands:"
     echo "  update   - Update Homebrew, Python, Node.js, Ruby, Rust, and other tools"
     echo "  verify   - Verify installed tools and their versions"
     echo "  versions - Display detailed version information for all tools"
+    echo "  upgrade  - Update the setup scripts themselves from GitHub"
     echo ""
     echo "Optional environment variables:"
     echo "  MAINTAIN_SYSTEM_FIX_RUBY_GEMS=0|disabled Disable Ruby gem auto-fix"
