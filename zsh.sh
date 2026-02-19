@@ -436,8 +436,8 @@ if [[ "${MACOS_DEV_SETUP_UPDATE_CHECK:-1}" != "0" ]]; then
     _local_ver="$(<"$_macos_dev_setup_data/version")"
     _remote_ver="$(<"$_macos_dev_setup_data/latest-remote-version")"
     if [[ -n "$_local_ver" ]] && [[ -n "$_remote_ver" ]] && [[ "$_local_ver" != "$_remote_ver" ]]; then
-      echo "\033[0;34m[macOS Dev Setup]\033[0m Update available: $_local_ver -> $_remote_ver"
-      echo "  Run: \033[0;32mmaintain-system upgrade\033[0m"
+      printf "\033[0;34m[macOS Dev Setup]\033[0m Update available: %s -> %s\n" "$_local_ver" "$_remote_ver"
+      printf "  Run: \033[0;32mmaintain-system upgrade\033[0m\n"
     fi
     unset _local_ver _remote_ver
   fi
