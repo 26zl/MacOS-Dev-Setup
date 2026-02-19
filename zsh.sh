@@ -414,6 +414,8 @@ if [[ -x "$maintain_system_bin" ]]; then
   alias verify="$maintain_system_bin verify"
   alias versions="$maintain_system_bin versions"
   alias upgrade="$maintain_system_bin upgrade"
+  alias install="$maintain_system_bin install"
+  alias dev-tools="$maintain_system_bin dev-tools"
 fi
 
 # ================================ Swiftly ===================================

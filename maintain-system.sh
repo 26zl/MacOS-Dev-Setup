@@ -3,6 +3,11 @@
 # maintain-system - Standalone system and dev environment maintenance script
 # Usage: maintain-system [update|verify|versions|upgrade]
 
+# Wrap entire script in a block so zsh reads the full file into memory
+# before execution. This prevents parse errors when self-upgrade replaces
+# this file while it's running.
+{
+
 # Colors for output
 readonly GREEN='\033[0;32m'
 readonly BLUE='\033[0;34m'
@@ -957,7 +962,10 @@ _cargo_update_packages() {
 update() {
   _ensure_system_path
   echo "${GREEN}==> Update started $(date)${NC}"
-  
+  if [[ -f "$DATA_DIR/version" ]]; then
+    echo "  Version: ${BLUE}$(<"$DATA_DIR/version")${NC}"
+  fi
+
   # Check if we're in a project directory and warn user
   if _is_project_directory; then
     echo "  ${BLUE}INFO:${NC} Project directory detected - project files will NOT be modified"
@@ -1034,7 +1042,10 @@ update() {
     local brew_upgrade_formula_output=""
     local brew_upgrade_formula_exit_code=0
 
-    # Capture output quietly and show summary
+    if [[ "$brew_outdated_total" -gt 0 ]]; then
+      echo "  Installing $brew_outdated_total package update(s), this may take a while..."
+    fi
+
     brew_upgrade_formula_output="$(brew upgrade 2>&1)" || brew_upgrade_formula_exit_code=$?
 
     if [[ $brew_upgrade_formula_exit_code -eq 0 ]]; then
@@ -1063,7 +1074,6 @@ update() {
     local brew_upgrade_cask_output=""
     local brew_upgrade_cask_exit_code=0
 
-    # Capture output quietly and show summary
     brew_upgrade_cask_output="$(brew upgrade --cask --greedy 2>&1)" || brew_upgrade_cask_exit_code=$?
 
     if [[ $brew_upgrade_cask_exit_code -eq 0 ]]; then
@@ -3515,14 +3525,34 @@ case "${1:-}" in
   upgrade|self-update)
     _self_upgrade
     ;;
+  install)
+    if [[ -f "$DATA_DIR/install.sh" ]]; then
+      zsh "$DATA_DIR/install.sh"
+    else
+      echo "${RED}❌ install.sh not found${NC}"
+      echo "  Run 'maintain-system upgrade' first to download scripts."
+      exit 1
+    fi
+    ;;
+  dev-tools)
+    if [[ -f "$DATA_DIR/dev-tools.sh" ]]; then
+      zsh "$DATA_DIR/dev-tools.sh" "${@:2}"
+    else
+      echo "${RED}❌ dev-tools.sh not found${NC}"
+      echo "  Run 'maintain-system upgrade' first to download scripts."
+      exit 1
+    fi
+    ;;
   *)
-    echo "Usage: maintain-system [update|verify|versions|upgrade]"
+    echo "Usage: maintain-system [update|verify|versions|upgrade|install|dev-tools]"
     echo ""
     echo "Commands:"
-    echo "  update   - Update Homebrew, Python, Node.js, Ruby, Rust, and other tools"
-    echo "  verify   - Verify installed tools and their versions"
-    echo "  versions - Display detailed version information for all tools"
-    echo "  upgrade  - Update the setup scripts themselves from GitHub"
+    echo "  update    - Update Homebrew, Python, Node.js, Ruby, Rust, and other tools"
+    echo "  verify    - Verify installed tools and their versions"
+    echo "  versions  - Display detailed version information for all tools"
+    echo "  upgrade   - Update the setup scripts themselves from GitHub"
+    echo "  install   - Re-run the base system setup (Homebrew, Oh My Zsh, etc.)"
+    echo "  dev-tools - Re-run the dev tools installer (Python, Node.js, Rust, etc.)"
     echo ""
     echo "Optional environment variables:"
     echo "  MAINTAIN_SYSTEM_FIX_RUBY_GEMS=0|disabled Disable Ruby gem auto-fix"
@@ -3533,3 +3563,6 @@ case "${1:-}" in
     exit 1
     ;;
 esac
+
+exit $?
+}
