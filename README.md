@@ -138,7 +138,7 @@ The `update` command gracefully skips missing tools and shows installation instr
 | Requirement | Details |
 |---|---|
 | **macOS** | macOS 13 Ventura or later (may work on older versions) |
-| **Architecture** | Apple Silicon (M1/M2/M3/M4) and Intel x86_64 |
+| **Architecture** | Apple Silicon (M1/M2/M3/M4/M5) and Intel x86_64 |
 | **Shell** | Zsh (default on macOS since Catalina) |
 | **Disk space** | ~15-30GB free (Xcode CLT + Homebrew + dev tools) |
 | **Network** | Required for all installations (downloads from GitHub, Homebrew, etc.) |
