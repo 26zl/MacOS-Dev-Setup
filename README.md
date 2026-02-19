@@ -33,6 +33,7 @@ source ~/.zshrc
 update    # Update all tools
 verify    # Check status
 versions  # Show versions
+upgrade   # Update the setup scripts themselves
 ```
 
 ## Features
@@ -73,6 +74,7 @@ source ~/.zshrc
 - `update` - Update all tools, package managers, and language runtimes
 - `verify` - Check status of all installed tools
 - `versions` - Display versions of all tools
+- `upgrade` - Update the setup scripts from the latest GitHub release
 
 ### What Gets Updated
 
@@ -95,6 +97,7 @@ Environment variables:
 - `MAINTAIN_SYSTEM_NVM_KEEP="v18.19.1"` - Keep specific Node.js versions
 - `MAINTAIN_SYSTEM_CHRUBY_KEEP="ruby-3.4.6"` - Keep specific Ruby versions
 - `MAINTAIN_SYSTEM_SWIFT_SNAPSHOTS=1` - Enable Swift snapshots
+- `MACOS_DEV_SETUP_UPDATE_CHECK=0` - Disable update notifications on shell start
 
 ## Supported Tools
 
