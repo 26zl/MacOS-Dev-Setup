@@ -471,10 +471,12 @@ cmd_cleanup() {
     
     echo ""
     _log_info "Running nix store optimise..."
-    if nix store optimise 2>&1; then
+    if nix store optimise 2>/dev/null; then
         _log_success "Store optimisation completed"
+    elif sudo nix store optimise 2>/dev/null; then
+        _log_success "Store optimisation completed (via sudo)"
     else
-        _log_warning "Store optimisation had issues (may require sudo)"
+        _log_warning "Store optimisation failed"
     fi
     
     _log_success "Cleanup complete"
