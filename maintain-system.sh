@@ -2464,9 +2464,10 @@ update() {
     fi
     
     # Optimise store (may require sudo for hardlinking in /nix/store)
+    # Try new CLI first, fall back to classic nix-store --optimise (works without experimental features)
     if nix store optimise 2>/dev/null; then
       echo "  Nix store optimised successfully"
-    elif sudo nix store optimise 2>/dev/null; then
+    elif sudo nix-store --optimise 2>/dev/null; then
       echo "  Nix store optimised successfully (via sudo)"
     else
       echo "  ${RED}WARNING:${NC} Nix store optimisation failed"
