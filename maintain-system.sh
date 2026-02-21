@@ -982,7 +982,7 @@ update() {
   # Check for Homebrew - skip if missing (install via install.sh)
   if ! command -v brew >/dev/null 2>&1; then
     echo "${GREEN}[Homebrew]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Homebrew, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install Homebrew, run: 'install'"
   fi
   
   if command -v brew >/dev/null 2>&1; then
@@ -1146,7 +1146,7 @@ update() {
   # Check for MacPorts - skip if missing (install via install.sh)
   if ! command -v port >/dev/null 2>&1; then
     echo "${GREEN}[MacPorts]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install MacPorts, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install MacPorts, run: 'install'"
   fi
   
   if command -v port >/dev/null 2>&1; then
@@ -1520,7 +1520,7 @@ update() {
       fi
     else
       echo "${GREEN}[pipx]${NC} Not found - skipping"
-      echo "  ${BLUE}INFO:${NC} To install pipx, run: ./dev-tools.sh"
+      echo "  ${BLUE}INFO:${NC} To install pipx, run: 'dev-tools'"
     fi
 
     # Update miniforge/conda packages
@@ -1666,7 +1666,7 @@ update() {
         fi
       else
         echo "${GREEN}[conda]${NC} Not found - skipping"
-        echo "  ${BLUE}INFO:${NC} To install conda, run: ./dev-tools.sh"
+        echo "  ${BLUE}INFO:${NC} To install conda, run: 'dev-tools'"
       fi
     fi
     
@@ -1713,7 +1713,7 @@ update() {
     hash -r 2>/dev/null || true
   else
     echo "${GREEN}[Python]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Python, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Python, run: 'dev-tools'"
   fi
 
   if command -v pyenv >/dev/null 2>&1 && [[ -n "$pyenv_target" && "$pyenv_target" != "system" ]]; then
@@ -1810,7 +1810,7 @@ update() {
     brew upgrade node || true
   else
     echo "${GREEN}[Node]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Node.js, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Node.js, run: 'dev-tools'"
   fi
   
   if command -v npm >/dev/null 2>&1; then
@@ -1957,7 +1957,7 @@ update() {
     fi
   else
     echo "${GREEN}[chruby]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install chruby, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install chruby, run: 'dev-tools'"
   fi
 
   if [[ "$chruby_available" == "true" ]] && [[ -n "$chruby_target" ]]; then
@@ -2003,7 +2003,7 @@ update() {
     _go_update_toolchain || true
   else
     echo "${GREEN}[Go]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Go, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Go, run: 'dev-tools'"
   fi
 
   # Swift
@@ -2169,7 +2169,7 @@ update() {
     fi
   else
     echo "${GREEN}[Swift]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Swift, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Swift, run: 'dev-tools'"
   fi
 
   # Rust - use rustup for comprehensive updates
@@ -2233,7 +2233,7 @@ update() {
     fi
   else
     echo "${GREEN}[Rust]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Rust, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Rust, run: 'dev-tools'"
   fi
 
   # Cargo (Rust package manager) - update globally installed packages
@@ -2339,13 +2339,13 @@ update() {
     fi
   else
     echo "${GREEN}[.NET]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install .NET SDK, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install .NET SDK, run: 'dev-tools'"
   fi
 
   # Check for mas - skip if missing (install via install.sh)
   if ! command -v mas >/dev/null 2>&1; then
     echo "${GREEN}[mas]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install mas, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install mas, run: 'install'"
   fi
   
   # mas (Mac App Store CLI) - update App Store apps
@@ -2401,7 +2401,7 @@ update() {
   # Check for Nix - skip if missing (install via install.sh)
   if ! command -v nix >/dev/null 2>&1 && ! [[ -d /nix ]] && ! [[ -f /nix/var/nix/profiles/default/bin/nix ]]; then
     echo "${GREEN}[Nix]${NC} Not found - skipping"
-    echo "  ${BLUE}INFO:${NC} To install Nix, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install Nix, run: 'install'"
   fi
   
   # Nix - integrated update with smart preview and cleanup
@@ -2598,7 +2598,7 @@ verify() {
       warn "Ruby" "not installed (run 'update' to install)"
     else
       miss "Ruby"
-      echo "  ${BLUE}INFO:${NC} To install Ruby and chruby, run: ./dev-tools.sh"
+      echo "  ${BLUE}INFO:${NC} To install Ruby and chruby, run: 'dev-tools'"
     fi
   fi
 
@@ -2677,7 +2677,7 @@ verify() {
       done
       if [[ "$conda_found" == false ]]; then
         miss "conda"
-        echo "  ${BLUE}INFO:${NC} To install conda, run: ./dev-tools.sh"
+        echo "  ${BLUE}INFO:${NC} To install conda, run: 'dev-tools'"
       fi
     fi
   else
@@ -2685,7 +2685,7 @@ verify() {
       warn "Python" "not installed (run 'update' to install)"
     else
       miss "Python"
-      echo "  ${BLUE}INFO:${NC} To install Python and pyenv, run: ./dev-tools.sh"
+      echo "  ${BLUE}INFO:${NC} To install Python and pyenv, run: 'dev-tools'"
     fi
   fi
 
@@ -2728,7 +2728,7 @@ verify() {
     fi
   else
     miss "Node"
-    echo "  ${BLUE}INFO:${NC} To install Node.js and nvm, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install Node.js and nvm, run: 'dev-tools'"
   fi
 
   if command -v rustc >/dev/null 2>&1; then
@@ -2738,7 +2738,7 @@ verify() {
       warn "Rust" "not installed (run 'update' to install)"
     else
       miss "Rust"
-      echo "  ${BLUE}INFO:${NC} To install Rust and rustup, run: ./dev-tools.sh"
+      echo "  ${BLUE}INFO:${NC} To install Rust and rustup, run: 'dev-tools'"
     fi
   fi
   if command -v rustup >/dev/null 2>&1; then
@@ -2759,7 +2759,7 @@ verify() {
     fi
   else
     miss ".NET"
-    echo "  ${BLUE}INFO:${NC} To install .NET SDK, run: ./dev-tools.sh"
+    echo "  ${BLUE}INFO:${NC} To install .NET SDK, run: 'dev-tools'"
   fi
 
   # Swift
@@ -2799,12 +2799,12 @@ verify() {
       [[ -n "$swiftly_installed" ]] && warn "swiftly" "installed but Swift not in PATH" || warn "swiftly" "installed but not initialized"
     else
       miss "Swift"
-      echo "  ${BLUE}INFO:${NC} To install Swift and swiftly, run: ./dev-tools.sh"
+      echo "  ${BLUE}INFO:${NC} To install Swift and swiftly, run: 'dev-tools'"
     fi
   fi
 
-  command -v go   >/dev/null 2>&1 && ok "Go"   "$(go version)" || { miss "Go"; echo "  ${BLUE}INFO:${NC} To install Go, run: ./dev-tools.sh"; }
-  command -v java >/dev/null 2>&1 && ok "Java" "$(java -version 2>&1 | head -n1)" || { miss "Java"; echo "  ${BLUE}INFO:${NC} To install Java, run: ./dev-tools.sh"; }
+  command -v go   >/dev/null 2>&1 && ok "Go"   "$(go version)" || { miss "Go"; echo "  ${BLUE}INFO:${NC} To install Go, run: 'dev-tools'"; }
+  command -v java >/dev/null 2>&1 && ok "Java" "$(java -version 2>&1 | head -n1)" || { miss "Java"; echo "  ${BLUE}INFO:${NC} To install Java, run: 'dev-tools'"; }
   command -v clang >/dev/null 2>&1 && ok "Clang" "$(clang --version | head -n1)" || miss "Clang"
   command -v gcc  >/dev/null 2>&1 && ok "GCC"  "$(gcc --version | head -n1)" || warn "GCC" "not found"
   
@@ -2859,14 +2859,14 @@ verify() {
     ok "Homebrew" "$brew_version"
   else
     miss "Homebrew"
-    echo "  ${BLUE}INFO:${NC} To install Homebrew, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install Homebrew, run: 'install'"
   fi
   if command -v port >/dev/null 2>&1; then
     local port_version="$(port version 2>/dev/null || echo "installed")"
     ok "MacPorts" "$port_version"
   else
     warn "MacPorts" "not installed"
-    echo "  ${BLUE}INFO:${NC} To install MacPorts, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install MacPorts, run: 'install'"
   fi
 
   # mas (Mac App Store CLI)
@@ -2881,7 +2881,7 @@ verify() {
     fi
   else
     miss "mas"
-    echo "  ${BLUE}INFO:${NC} To install mas, run: ./install.sh"
+    echo "  ${BLUE}INFO:${NC} To install mas, run: 'install'"
   fi
 
   # Nix - comprehensive status check
@@ -2909,7 +2909,7 @@ verify() {
       warn "Nix" "installed but not in PATH (run: ./scripts/nix-macos-maintenance.sh ensure-path or reinstall)"
     else
       miss "Nix"
-      echo "  ${BLUE}INFO:${NC} To install Nix, run: ./install.sh"
+      echo "  ${BLUE}INFO:${NC} To install Nix, run: 'install'"
     fi
   fi
 
@@ -2948,7 +2948,7 @@ versions() {
     echo "Ruby ........... $(ruby -v)"
   else
     echo "Ruby ........... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
   command -v gem  >/dev/null 2>&1 && echo "Gem ............ $(gem -v)" || true
   # Check for chruby (shell function)
@@ -3061,7 +3061,7 @@ versions() {
     fi
   else
     echo "Python ......... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
 
   # nvm is a shell function, check with type
@@ -3101,14 +3101,14 @@ versions() {
     fi
   else
     echo "Node.js ........ not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
 
   if command -v rustc >/dev/null 2>&1; then
     echo "Rust ........... $(rustc -V)"
   else
     echo "Rust ........... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
   command -v rustup >/dev/null 2>&1 && echo "rustup ......... $(rustup show active-toolchain 2>/dev/null | head -n1)" || true
   if command -v cargo >/dev/null 2>&1; then
@@ -3130,7 +3130,7 @@ versions() {
     echo ".NET ........... $dotnet_info"
   else
     echo ".NET ........... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
 
   if command -v swift >/dev/null 2>&1; then
@@ -3163,7 +3163,7 @@ versions() {
     fi
   else
     echo "Swift .......... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
     if command -v swiftly >/dev/null 2>&1; then
       local swiftly_installed
       swiftly_installed="$(swiftly list 2>/dev/null | head -n1 || echo "")"
@@ -3175,13 +3175,13 @@ versions() {
     echo "Go ............. $(go version)"
   else
     echo "Go ............. not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
   if command -v java >/dev/null 2>&1; then
     echo "Java ........... $(java -version 2>&1 | head -n1)"
   else
     echo "Java ........... not installed"
-    echo "  To install: ./dev-tools.sh"
+    echo "  To install: 'dev-tools'"
   fi
   if command -v clang >/dev/null 2>&1; then
     echo "Clang .......... $(clang --version | head -n1)"
@@ -3246,7 +3246,7 @@ versions() {
     echo "Homebrew ....... $brew_version ($brew_count formulae)"
   else
     echo "Homebrew ....... not installed"
-    echo "  To install: ./install.sh"
+    echo "  To install: 'install'"
   fi
   if command -v port >/dev/null 2>&1; then
     local port_version="$(port version)"
@@ -3254,7 +3254,7 @@ versions() {
     echo "MacPorts ....... $port_version ($port_count ports)"
   else
     echo "MacPorts ....... not installed"
-    echo "  To install: ./install.sh"
+    echo "  To install: 'install'"
   fi
 
   # mas (Mac App Store CLI)
@@ -3269,7 +3269,7 @@ versions() {
     fi
   else
     echo "mas ............. not installed"
-    echo "  To install: ./install.sh"
+    echo "  To install: 'install'"
   fi
 
   # Nix
@@ -3296,7 +3296,7 @@ versions() {
     fi
   else
     echo "Nix ............. not installed"
-    echo "  To install: ./install.sh"
+    echo "  To install: 'install'"
   fi
 
   if command -v mongod >/dev/null 2>&1; then
@@ -3344,7 +3344,7 @@ _self_upgrade() {
 
   if [[ -z "$local_version" ]]; then
     echo "${RED}❌ No local version found${NC}"
-    echo "  Run install.sh first to set up version tracking."
+    echo "  Run 'install' first to set up version tracking."
     return 1
   fi
 
@@ -3530,7 +3530,7 @@ case "${1:-}" in
       zsh "$DATA_DIR/install.sh"
     else
       echo "${RED}❌ install.sh not found${NC}"
-      echo "  Run 'maintain-system upgrade' first to download scripts."
+      echo "  Run 'upgrade' first to download scripts."
       exit 1
     fi
     ;;
@@ -3539,7 +3539,7 @@ case "${1:-}" in
       zsh "$DATA_DIR/dev-tools.sh" "${@:2}"
     else
       echo "${RED}❌ dev-tools.sh not found${NC}"
-      echo "  Run 'maintain-system upgrade' first to download scripts."
+      echo "  Run 'upgrade' first to download scripts."
       exit 1
     fi
     ;;

@@ -34,6 +34,8 @@ update    # Update all tools
 verify    # Check status
 versions  # Show versions
 upgrade   # Update the setup scripts themselves
+install   # Re-run base system setup
+dev-tools # Re-run dev tools installer
 ```
 
 ## Features
@@ -75,6 +77,8 @@ source ~/.zshrc
 - `verify` - Check status of all installed tools
 - `versions` - Display versions of all tools
 - `upgrade` - Update the setup scripts from the latest GitHub release
+- `install` - Re-run the base system setup (Homebrew, Oh My Zsh, etc.)
+- `dev-tools` - Re-run the dev tools installer (Python, Node.js, Rust, etc.)
 
 ### What Gets Updated
 

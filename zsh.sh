@@ -445,7 +445,7 @@ if [[ "${MACOS_DEV_SETUP_UPDATE_CHECK:-1}" != "0" ]]; then
       _macos_dev_setup_pending_remote="$_remote_ver"
       _macos_dev_setup_update_notice() {
         printf "\033[0;34m[macOS Dev Setup]\033[0m Update available: %s -> %s\n" "$_macos_dev_setup_pending_local" "$_macos_dev_setup_pending_remote"
-        printf "  Run: \033[0;32mmaintain-system upgrade\033[0m\n"
+        printf "  Run: \033[0;32mupgrade\033[0m\n"
         # Self-removing: only show once per shell session
         add-zsh-hook -d precmd _macos_dev_setup_update_notice
         unset -f _macos_dev_setup_update_notice

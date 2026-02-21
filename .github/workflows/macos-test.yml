@@ -518,19 +518,19 @@ jobs:
           zsh -lc '
             output=$(maintain-system verify 2>&1)
             
-            # Check for skip messages with install.sh references for system package managers
-            if echo "$output" | grep -qE "Not found - skipping" && echo "$output" | grep -qE "To install.*run.*install\.sh"; then
-              echo "OK: maintain-system.sh correctly skips missing system package managers and refers to install.sh"
+            # Check for skip messages with install alias references for system package managers
+            if echo "$output" | grep -qE "Not found - skipping" && echo "$output" | grep -qE "To install.*run: '\''install'\''"; then
+              echo "OK: maintain-system.sh correctly skips missing system package managers and refers to install"
             else
-              echo "WARNING: Skip messages with install.sh references not found for system package managers"
+              echo "WARNING: Skip messages with install references not found for system package managers"
               echo "This may be OK if all system package managers are installed"
             fi
-            
-            # Check for skip messages with dev-tools.sh references for language tools
-            if echo "$output" | grep -qE "Not installed" && echo "$output" | grep -qE "To install.*run.*dev-tools\.sh"; then
-              echo "OK: maintain-system.sh correctly refers to dev-tools.sh for language tools"
+
+            # Check for skip messages with dev-tools alias references for language tools
+            if echo "$output" | grep -qE "Not installed" && echo "$output" | grep -qE "To install.*run: '\''dev-tools'\''"; then
+              echo "OK: maintain-system.sh correctly refers to dev-tools for language tools"
             else
-              echo "WARNING: Skip messages with dev-tools.sh references not found for language tools"
+              echo "WARNING: Skip messages with dev-tools references not found for language tools"
               echo "This may be OK if all language tools are installed"
             fi
           ' || exit 1
@@ -556,49 +556,49 @@ jobs:
             echo "INFO: mas not installed (this is OK if Homebrew not available or installation was skipped)"
           fi
           
-          # Test Homebrew skip behavior (should refer to install.sh)
+          # Test Homebrew skip behavior (should refer to install alias)
           echo ""
           echo "Testing Homebrew skip behavior in maintain-system.sh..."
-          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install Homebrew.*run.*install\.sh" maintain-system.sh; then
-            echo "OK: Homebrew skip message with install.sh reference found"
+          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install Homebrew.*run: 'install'" maintain-system.sh; then
+            echo "OK: Homebrew skip message with install reference found"
           else
             echo "WARNING: Homebrew skip message not found in maintain-system.sh"
           fi
-          
-          # Test MacPorts skip behavior (should refer to install.sh)
+
+          # Test MacPorts skip behavior (should refer to install alias)
           echo ""
           echo "Testing MacPorts skip behavior in maintain-system.sh..."
-          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install MacPorts.*run.*install\.sh" maintain-system.sh; then
-            echo "OK: MacPorts skip message with install.sh reference found"
+          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install MacPorts.*run: 'install'" maintain-system.sh; then
+            echo "OK: MacPorts skip message with install reference found"
           else
             echo "WARNING: MacPorts skip message not found in maintain-system.sh"
           fi
-          
-          # Test mas skip behavior (should refer to install.sh)
+
+          # Test mas skip behavior (should refer to install alias)
           echo ""
           echo "Testing mas skip behavior in maintain-system.sh..."
-          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install mas.*run.*install\.sh" maintain-system.sh; then
-            echo "OK: mas skip message with install.sh reference found"
+          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install mas.*run: 'install'" maintain-system.sh; then
+            echo "OK: mas skip message with install reference found"
           else
             echo "WARNING: mas skip message not found in maintain-system.sh"
           fi
-          
-          # Test Nix skip behavior (should refer to install.sh)
+
+          # Test Nix skip behavior (should refer to install alias)
           echo ""
           echo "Testing Nix skip behavior in maintain-system.sh..."
-          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install Nix.*run.*install\.sh" maintain-system.sh; then
-            echo "OK: Nix skip message with install.sh reference found"
+          if grep -qE "Not found - skipping" maintain-system.sh && grep -qE "To install Nix.*run: 'install'" maintain-system.sh; then
+            echo "OK: Nix skip message with install reference found"
           else
             echo "WARNING: Nix skip message not found in maintain-system.sh"
           fi
-          
-          # Test language tools skip behavior (should refer to dev-tools.sh)
+
+          # Test language tools skip behavior (should refer to dev-tools alias)
           echo ""
           echo "Testing language tools skip behavior in maintain-system.sh..."
-          if grep -qE "To install.*run.*dev-tools\.sh" maintain-system.sh; then
-            echo "OK: Language tools skip messages with dev-tools.sh reference found"
+          if grep -qE "To install.*run: 'dev-tools'" maintain-system.sh; then
+            echo "OK: Language tools skip messages with dev-tools reference found"
           else
-            echo "WARNING: Language tools skip messages with dev-tools.sh reference not found"
+            echo "WARNING: Language tools skip messages with dev-tools reference not found"
           fi
           
           # Test that installed package managers actually work with maintain-system
@@ -889,12 +889,12 @@ jobs:
             fi
           ' || exit 1
           
-          # Test Homebrew auto-install skip behavior (should refer to install.sh)
+          # Test Homebrew auto-install skip behavior (should refer to install alias)
           echo ""
           echo "Testing Homebrew skip behavior in maintain-system.sh..."
           zsh -lc '
-            if grep -q "Not found - skipping\|To install Homebrew.*run.*install\.sh" "$(command -v maintain-system)" 2>/dev/null; then
-              echo "OK: Homebrew skip logic with install.sh reference detected in maintain-system.sh"
+            if grep -q "Not found - skipping\|To install Homebrew.*run: '\''install'\''" "$(command -v maintain-system)" 2>/dev/null; then
+              echo "OK: Homebrew skip logic with install reference detected in maintain-system.sh"
             else
               echo "WARNING: Homebrew skip logic not found (may be OK if Homebrew is always present)"
             fi
