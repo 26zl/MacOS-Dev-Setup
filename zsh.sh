@@ -431,15 +431,28 @@ fzf_config="${XDG_CONFIG_HOME:-$HOME/.config}/fzf/fzf.zsh"
 
 # ================================ UPDATE CHECK =============================
 # Check for macOS Dev Setup updates (async, max once per 24h)
+# Notification is deferred to first prompt via precmd hook to avoid
+# console output during zsh init (which triggers P10k instant prompt warnings)
 if [[ "${MACOS_DEV_SETUP_UPDATE_CHECK:-1}" != "0" ]]; then
   _macos_dev_setup_data="$HOME/.local/share/macos-dev-setup"
-  # Show notification if cached versions differ (sync, <1ms - just file reads)
+  # Defer notification to first prompt to avoid P10k instant prompt warning
   if [[ -f "$_macos_dev_setup_data/version" ]] && [[ -f "$_macos_dev_setup_data/latest-remote-version" ]]; then
     _local_ver="$(<"$_macos_dev_setup_data/version")"
     _remote_ver="$(<"$_macos_dev_setup_data/latest-remote-version")"
     if [[ -n "$_local_ver" ]] && [[ -n "$_remote_ver" ]] && [[ "$_local_ver" != "$_remote_ver" ]]; then
-      printf "\033[0;34m[macOS Dev Setup]\033[0m Update available: %s -> %s\n" "$_local_ver" "$_remote_ver"
-      printf "  Run: \033[0;32mmaintain-system upgrade\033[0m\n"
+      # Store versions for deferred display (zsh functions don't capture closures)
+      _macos_dev_setup_pending_local="$_local_ver"
+      _macos_dev_setup_pending_remote="$_remote_ver"
+      _macos_dev_setup_update_notice() {
+        printf "\033[0;34m[macOS Dev Setup]\033[0m Update available: %s -> %s\n" "$_macos_dev_setup_pending_local" "$_macos_dev_setup_pending_remote"
+        printf "  Run: \033[0;32mmaintain-system upgrade\033[0m\n"
+        # Self-removing: only show once per shell session
+        add-zsh-hook -d precmd _macos_dev_setup_update_notice
+        unset -f _macos_dev_setup_update_notice
+        unset _macos_dev_setup_pending_local _macos_dev_setup_pending_remote
+      }
+      autoload -Uz add-zsh-hook
+      add-zsh-hook precmd _macos_dev_setup_update_notice
     fi
     unset _local_ver _remote_ver
   fi
