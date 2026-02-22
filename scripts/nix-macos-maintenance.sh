@@ -85,17 +85,20 @@ _remove_marker_block() {
     fi
     
     # Use a temporary file to avoid in-place editing issues
-    local temp_file
+    local temp_file orig_perms
     temp_file=$(mktemp)
-    
-    # Remove lines between markers (inclusive)
-    awk -v start="$NIX_MARKER_START" -v end="$NIX_MARKER_END" '
-        /'"$NIX_MARKER_START"'/ { in_block=1; next }
-        /'"$NIX_MARKER_END"'/ { in_block=0; next }
+    # Preserve original file permissions
+    orig_perms=$(stat -f '%Lp' "$file" 2>/dev/null || stat -c '%a' "$file" 2>/dev/null || echo "644")
+
+    # Remove lines between markers (inclusive) using awk variables (not inline interpolation)
+    awk '
+        /^# BEGIN Nix macOS Maintenance Hook/ { in_block=1; next }
+        /^# END Nix macOS Maintenance Hook/ { in_block=0; next }
         !in_block { print }
     ' "$file" > "$temp_file"
-    
+
     mv "$temp_file" "$file"
+    chmod "$orig_perms" "$file" 2>/dev/null || true
 }
 
 # Add Nix hook to .zprofile
@@ -318,7 +321,15 @@ cmd_preview_nix_upgrade() {
     
     IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
     IFS='.' read -r target_major target_minor target_patch <<< "$target_version"
-    
+
+    # Strip non-numeric suffixes (e.g., "10pre20241025" -> "10")
+    current_patch="${current_patch%%[!0-9]*}"; [[ -z "$current_patch" ]] && current_patch=0
+    target_patch="${target_patch%%[!0-9]*}"; [[ -z "$target_patch" ]] && target_patch=0
+    current_major="${current_major%%[!0-9]*}"; [[ -z "$current_major" ]] && current_major=0
+    current_minor="${current_minor%%[!0-9]*}"; [[ -z "$current_minor" ]] && current_minor=0
+    target_major="${target_major%%[!0-9]*}"; [[ -z "$target_major" ]] && target_major=0
+    target_minor="${target_minor%%[!0-9]*}"; [[ -z "$target_minor" ]] && target_minor=0
+
     # Simple version comparison
     if [[ "$current_major" -gt "$target_major" ]] || \
        [[ "$current_major" -eq "$target_major" && "$current_minor" -gt "$target_minor" ]] || \
@@ -403,10 +414,14 @@ cmd_update() {
                 
                 IFS='.' read -r current_major current_minor current_patch <<< "$current_nix_version"
                 IFS='.' read -r target_major target_minor target_patch <<< "$target_version"
-                
-                # Normalize patch version
-                [[ -z "$current_patch" ]] && current_patch=0
-                [[ -z "$target_patch" ]] && target_patch=0
+
+                # Strip non-numeric suffixes and default to 0
+                current_patch="${current_patch%%[!0-9]*}"; [[ -z "$current_patch" ]] && current_patch=0
+                target_patch="${target_patch%%[!0-9]*}"; [[ -z "$target_patch" ]] && target_patch=0
+                current_major="${current_major%%[!0-9]*}"; [[ -z "$current_major" ]] && current_major=0
+                current_minor="${current_minor%%[!0-9]*}"; [[ -z "$current_minor" ]] && current_minor=0
+                target_major="${target_major%%[!0-9]*}"; [[ -z "$target_major" ]] && target_major=0
+                target_minor="${target_minor%%[!0-9]*}"; [[ -z "$target_minor" ]] && target_minor=0
                 
                 # Check if it's a downgrade
                 local is_downgrade=false

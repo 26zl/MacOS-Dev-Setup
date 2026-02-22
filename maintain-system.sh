@@ -43,8 +43,8 @@ _check_macos_compatibility() {
   
   # Check available disk space
   if command -v df >/dev/null 2>&1; then
-    local available_space=$(df -h . | awk 'NR==2 {print $4}' | sed 's/[^0-9.]//g')
-    if [[ -n "$available_space" && "$available_space" -lt 1 ]]; then
+    local available_space=$(df -g . 2>/dev/null | awk 'NR==2 {print $4}' || echo "")
+    if [[ -n "$available_space" ]] && [[ "$available_space" =~ ^[0-9]+$ ]] && [[ "$available_space" -lt 1 ]]; then
       echo "  ${RED}WARNING:${NC} Low disk space detected ($available_space GB available)"
     fi
   fi
@@ -679,6 +679,8 @@ _chruby_install_latest() {
   if ! chruby 2>/dev/null | sed -E 's/^[* ]+//' | grep -qx "ruby-$latest"; then
     ruby-install ruby "$latest" || return 1
   fi
+  # Activate the installed version
+  chruby "ruby-$latest" 2>/dev/null || true
   echo "ruby-$latest"
 }
 
@@ -695,10 +697,8 @@ _go_update_toolchain() {
   
   local go_errors=()
 
-  # Clean module cache to avoid stale/corrupt downloads
-  if ! go clean -modcache 2>/dev/null; then
-    echo "  ${RED}WARNING:${NC} Failed to clean Go module cache (continuing)"
-  fi
+  # Note: go clean -modcache removed - it deletes the entire module download cache
+  # which forces all Go projects to re-download dependencies. Too aggressive for routine updates.
   
   # Update Go itself - Homebrew only (no auto-install via go tool)
   local brew_go=false
@@ -737,7 +737,7 @@ _go_update_toolchain() {
   local latest_version=""
   if command -v curl >/dev/null 2>&1; then
     local json_response=""
-    json_response="$(curl -s --max-time 5 'https://go.dev/dl/?mode=json' 2>/dev/null || echo "")"
+    json_response="$(curl -s --connect-timeout 15 --max-time 30 --retry 3 'https://go.dev/dl/?mode=json' 2>/dev/null || echo "")"
     if [[ -n "$json_response" && "$json_response" != "FAILED" ]]; then
       # Parse JSON to find latest stable version
       # The JSON format is: [{"version":"go1.24.5","stable":true,...},...]
@@ -940,7 +940,7 @@ _cargo_update_packages() {
   while IFS= read -r package; do
     [[ -z "$package" ]] && continue
     echo "  Upgrading $package..."
-    if cargo install --force "$package" 2>/dev/null >/dev/null; then
+    if cargo install "$package" 2>/dev/null >/dev/null; then
       ((updated++))
     else
       ((failed++))
@@ -1035,8 +1035,12 @@ update() {
     else
       brew_errors+=("update")
       echo "  ${RED}WARNING:${NC} Homebrew update failed"
+      # Initialize variables that would have been set in the success path
+      local brew_outdated_formula="" brew_outdated_cask=""
+      local brew_outdated_formula_count=0 brew_outdated_cask_count=0
+      local brew_outdated_total=0 brew_had_pending=false
     fi
-    
+
     local brew_formula_upgraded=false
     local brew_cask_upgraded=false
     local brew_upgrade_formula_output=""
@@ -1283,8 +1287,10 @@ update() {
           echo "  ${BLUE}INFO:${NC} Non-interactive mode: skipping Python upgrade (incompatible packages detected)"
           should_upgrade=false
         else
-          read -q "? Do you want to continue with Python upgrade? (y/N): " && echo
-          if [[ $REPLY =~ ^[Yy]$ ]]; then
+          echo -n "Do you want to continue with Python upgrade? (y/N): "
+          local upgrade_reply=""
+          IFS= read -r upgrade_reply || true
+          if [[ "$upgrade_reply" =~ ^[Yy]$ ]]; then
             should_upgrade=true
           fi
         fi
@@ -2459,8 +2465,9 @@ update() {
     # Cleanup Nix store (gc + optimise)
     echo "  Cleaning Nix store..."
     local gc_output
-    gc_output=$(nix store gc 2>&1 || echo "")
-    if [[ -n "$gc_output" ]]; then
+    local gc_exit_code=0
+    gc_output=$(nix store gc 2>&1) || gc_exit_code=$?
+    if [[ $gc_exit_code -eq 0 ]]; then
       local freed_space
       freed_space=$(echo "$gc_output" | grep -iE "(freed|removed|deleted).*[0-9]+.*(bytes|KB|MB|GB)" | head -1 || echo "")
       if [[ -n "$freed_space" ]]; then
@@ -2506,10 +2513,14 @@ update() {
           
           IFS='.' read -r current_major current_minor current_patch <<< "$current_nix_version"
           IFS='.' read -r target_major target_minor target_patch <<< "$nix_target_version"
-            
-          # Normalize patch version
-          [[ -z "$current_patch" ]] && current_patch=0
-          [[ -z "$target_patch" ]] && target_patch=0
+
+          # Normalize: strip non-numeric suffixes (e.g., "10pre20241025" -> "10") and default to 0
+          current_patch="${current_patch%%[!0-9]*}"; [[ -z "$current_patch" ]] && current_patch=0
+          target_patch="${target_patch%%[!0-9]*}"; [[ -z "$target_patch" ]] && target_patch=0
+          current_major="${current_major%%[!0-9]*}"; [[ -z "$current_major" ]] && current_major=0
+          current_minor="${current_minor%%[!0-9]*}"; [[ -z "$current_minor" ]] && current_minor=0
+          target_major="${target_major%%[!0-9]*}"; [[ -z "$target_major" ]] && target_major=0
+          target_minor="${target_minor%%[!0-9]*}"; [[ -z "$target_minor" ]] && target_minor=0
           
           # Check if it's a downgrade
           local is_downgrade=false
@@ -3353,7 +3364,7 @@ _self_upgrade() {
   # Fetch latest release from GitHub API
   echo "Checking for updates..."
   local api_response=""
-  api_response="$(curl -s --max-time 10 "https://api.github.com/repos/$GITHUB_REPO/releases/latest" 2>/dev/null)"
+  api_response="$(curl -s --connect-timeout 15 --max-time 30 --retry 3 "https://api.github.com/repos/$GITHUB_REPO/releases/latest" 2>/dev/null)"
   if [[ -z "$api_response" ]]; then
     echo "${RED}❌ Failed to reach GitHub API${NC}"
     return 1
@@ -3395,7 +3406,7 @@ _self_upgrade() {
   trap 'rm -rf "$tmp_dir"; rm -f "$LOCK_FILE"' EXIT INT TERM HUP
 
   echo "Downloading release..."
-  if ! curl -sL --max-time 30 "$zipball_url" -o "$tmp_dir/release.zip" 2>/dev/null; then
+  if ! curl -sL --connect-timeout 15 --max-time 120 --retry 3 "$zipball_url" -o "$tmp_dir/release.zip" 2>/dev/null; then
     echo "${RED}❌ Download failed${NC}"
     rm -rf "$tmp_dir"
     return 1
@@ -3420,8 +3431,7 @@ _self_upgrade() {
   local upgrade_failed=false
 
   # Update maintain-system binary
-  local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
-  [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+  local local_bin="$HOME/.local/bin"
   if [[ -f "$extract_dir/maintain-system.sh" ]]; then
     if cp "$extract_dir/maintain-system.sh" "$local_bin/maintain-system" && chmod +x "$local_bin/maintain-system"; then
       echo "  Updated: maintain-system"
@@ -3439,16 +3449,21 @@ _self_upgrade() {
       cp "$zshrc" "$zshrc.backup-$(date +%Y%m%d%H%M%S)"
 
       # Preserve USER CUSTOMIZATIONS section if it exists
+      # Extract only the user content AFTER the marker line (not the marker itself)
       local user_section=""
       if grep -q "# USER CUSTOMIZATIONS" "$zshrc" 2>/dev/null; then
-        user_section="$(sed -n '/# USER CUSTOMIZATIONS/,$p' "$zshrc")"
+        user_section="$(sed -n '/^# USER CUSTOMIZATIONS/,$p' "$zshrc" | tail -n +2)"
       fi
 
       if cp "$extract_dir/zsh.sh" "$zshrc"; then
         # Re-append user customizations if they existed
+        # Check if new zsh.sh already has the marker; if not, add it
         if [[ -n "$user_section" ]]; then
-          echo "" >> "$zshrc"
-          echo "$user_section" >> "$zshrc"
+          if ! grep -q "# USER CUSTOMIZATIONS" "$zshrc" 2>/dev/null; then
+            echo "" >> "$zshrc"
+            echo "# USER CUSTOMIZATIONS" >> "$zshrc"
+          fi
+          print -r -- "$user_section" >> "$zshrc"
         fi
         echo "  Updated: ~/.zshrc (backup created)"
       else

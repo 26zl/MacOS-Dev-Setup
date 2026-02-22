@@ -60,6 +60,8 @@ _ask_user() {
   # In CI/non-interactive mode, automatically answer "yes" to all prompts
   # This simulates a user answering "yes" to everything
   # Allow FORCE_INTERACTIVE=1 to run real prompts in CI (e.g., yes-piped tests)
+  # Export NONINTERACTIVE so child processes (e.g., Homebrew installer) also see it
+  [[ -n "${NONINTERACTIVE:-}" ]] && export NONINTERACTIVE
   if [[ -n "${FORCE_INTERACTIVE:-}" ]]; then
     : # Proceed to prompt
   elif [[ -n "${NONINTERACTIVE:-}" ]] || [[ -n "${CI:-}" ]]; then
@@ -228,7 +230,13 @@ install_homebrew() {
     echo "  ${BLUE}INFO:${NC} The installation process will be shown below:"
     echo ""
     echo "  Installing Homebrew..."
-    /bin/bash -c "$(_curl_safe -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    local brew_installer
+    brew_installer="$(_curl_safe -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    if [[ -z "$brew_installer" ]]; then
+      echo "${RED}❌ Failed to download Homebrew installer (empty response)${NC}"
+      exit 1
+    fi
+    /bin/bash -c "$brew_installer"
     HOMEBREW_PREFIX="$(_detect_brew_prefix)"
     if [[ -n "$HOMEBREW_PREFIX" ]]; then
       echo ""
@@ -257,7 +265,13 @@ install_homebrew() {
 install_oh_my_zsh() {
   if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     echo "${YELLOW}📦 Installing Oh My Zsh...${NC}"
-    if sh -c "$(_curl_safe -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc; then
+    local omz_installer
+    omz_installer="$(_curl_safe -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    if [[ -z "$omz_installer" ]]; then
+      warn "Oh My Zsh installer download failed (empty response)"
+      return 1
+    fi
+    if sh -c "$omz_installer" "" --unattended --keep-zshrc; then
       echo "${GREEN}✅ Oh My Zsh installed${NC}"
     else
       warn "Oh My Zsh installation failed"
@@ -339,6 +353,10 @@ install_mas() {
     HOMEBREW_PREFIX="$(_detect_brew_prefix)"
 
     if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+      if ! _ask_user "${YELLOW}📦 mas (Mac App Store CLI) not found. Install via Homebrew?" "N"; then
+        echo "${YELLOW}⚠️  Skipping mas installation${NC}"
+        return 0
+      fi
       echo "${YELLOW}📦 Installing mas (Mac App Store CLI) via Homebrew...${NC}"
       if "$HOMEBREW_PREFIX/bin/brew" install mas; then
         echo "${GREEN}✅ mas installed${NC}"
@@ -357,6 +375,10 @@ install_mas() {
 # Function to install MacPorts
 install_macports() {
   if ! command -v port >/dev/null 2>&1; then
+    if ! _ask_user "${YELLOW}📦 MacPorts not found. Install MacPorts from source?" "N"; then
+      echo "${YELLOW}⚠️  Skipping MacPorts installation${NC}"
+      return 0
+    fi
     echo "${YELLOW}📦 Installing MacPorts from source...${NC}"
     echo "  ${BLUE}INFO:${NC} MacPorts builds from source and takes ~20-60 minutes"
     echo "  ${BLUE}INFO:${NC} Requires sudo (you will be prompted for your password)"
@@ -595,9 +617,8 @@ install_nix() {
 
 # Function to setup maintain-system script
 setup_maintain_system() {
-  local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
-  [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
-  
+  local local_bin="$HOME/.local/bin"
+
   echo "${YELLOW}📦 Setting up maintain-system script...${NC}"
   mkdir -p "$local_bin"
   
@@ -730,9 +751,8 @@ _detect_brew_prefix() {
   fi
 }
 
-# Ensure ~/.local/bin (or XDG_DATA_HOME/../bin) is in PATH
-local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
-[[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+# Ensure ~/.local/bin is in PATH
+local_bin="$HOME/.local/bin"
 
 HOMEBREW_PREFIX="$(_detect_brew_prefix)"
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
@@ -820,7 +840,7 @@ install_zsh_config() {
   # Append user customizations marker and any previously saved customizations
   if [[ -n "$user_customizations" ]]; then
     echo "" >> "$HOME/.zshrc"
-    echo "$user_customizations" >> "$HOME/.zshrc"
+    print -r -- "$user_customizations" >> "$HOME/.zshrc"
     echo "${GREEN}✅ zsh configuration installed (user customizations preserved)${NC}"
     echo "  ${BLUE}INFO:${NC} Your custom additions in the '# USER CUSTOMIZATIONS' section were kept"
   else
@@ -849,8 +869,7 @@ refresh_environment() {
   # We manually apply the PATH cleanup logic instead of sourcing .zprofile
   
   # Update PATH immediately based on what should be in .zprofile
-  local local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
-  [[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+  local local_bin="$HOME/.local/bin"
   
   if [[ -n "$HOMEBREW_PREFIX" ]]; then
     # Remove Homebrew paths from current PATH temporarily
@@ -923,16 +942,14 @@ main() {
   echo ""
   
   # Critical installations (must succeed)
-  set -e
-  install_xcode_clt || { echo "${RED}❌ Critical: Xcode Command Line Tools installation failed${NC}"; exit 1; }
-  install_homebrew || { echo "${RED}❌ Critical: Homebrew installation failed${NC}"; exit 1; }
-  setup_maintain_system || { echo "${RED}❌ Critical: maintain-system script installation failed${NC}"; exit 1; }
-  setup_zprofile_path_cleanup || { echo "${RED}❌ Critical: PATH cleanup setup failed${NC}"; exit 1; }
-  install_zsh_config || { echo "${RED}❌ Critical: zsh configuration installation failed${NC}"; exit 1; }
-  refresh_environment || { echo "${RED}❌ Critical: Environment refresh failed${NC}"; exit 1; }
-  
+  if ! install_xcode_clt; then echo "${RED}❌ Critical: Xcode Command Line Tools installation failed${NC}"; exit 1; fi
+  if ! install_homebrew; then echo "${RED}❌ Critical: Homebrew installation failed${NC}"; exit 1; fi
+  if ! setup_maintain_system; then echo "${RED}❌ Critical: maintain-system script installation failed${NC}"; exit 1; fi
+  if ! setup_zprofile_path_cleanup; then echo "${RED}❌ Critical: PATH cleanup setup failed${NC}"; exit 1; fi
+  if ! install_zsh_config; then echo "${RED}❌ Critical: zsh configuration installation failed${NC}"; exit 1; fi
+  if ! refresh_environment; then echo "${RED}❌ Critical: Environment refresh failed${NC}"; exit 1; fi
+
   # Optional installations (can fail)
-  set +e
   install_oh_my_zsh || warn "Oh My Zsh installation failed"
   install_powerlevel10k || warn "Powerlevel10k installation failed"
   install_zsh_plugins || warn "ZSH plugins installation failed"

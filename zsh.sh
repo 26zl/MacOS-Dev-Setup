@@ -29,7 +29,7 @@ _detect_brew_prefix() {
 }
 # Clean PATH of duplicates and prioritize Homebrew
 _clean_path() {
-  local path_array=($(echo "$PATH" | tr ':' '\n'))
+  local path_array=("${(@s/:/)PATH}")
   local unique_paths=()
   local seen_paths=()
   local homebrew_paths=()
@@ -100,7 +100,7 @@ _add_to_path() {
   normalized_new="${normalized_new%/}"
   
   # Check if path is already in PATH
-  local path_array=($(echo "$PATH" | tr ':' '\n'))
+  local path_array=("${(@s/:/)PATH}")
   for path_entry in "${path_array[@]}"; do
     [[ -z "$path_entry" ]] && continue
     local normalized_entry="${path_entry/#\~/$HOME}"
@@ -119,9 +119,8 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   _add_to_path "$HOMEBREW_PREFIX/bin"
   _add_to_path "$HOMEBREW_PREFIX/sbin"
 fi
-# Use XDG_DATA_HOME if set, otherwise fall back to ~/.local/bin
-local_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin"
-[[ -d "$local_bin" ]] || local_bin="$HOME/.local/bin"
+# Add ~/.local/bin to PATH
+local_bin="$HOME/.local/bin"
 _add_to_path "$local_bin"
 
 # ================================ chruby/Ruby ===============================
@@ -152,6 +151,11 @@ if command -v chruby >/dev/null 2>&1; then
 fi
 _setup_gem_path() {
   if ! command -v ruby >/dev/null 2>&1; then return 0; fi
+  # Cache key: skip if ruby path hasn't changed since last check
+  local current_ruby_path
+  current_ruby_path="$(command -v ruby 2>/dev/null)"
+  if [[ "$current_ruby_path" == "${_gem_path_last_ruby:-}" ]]; then return 0; fi
+  _gem_path_last_ruby="$current_ruby_path"
   local engine api
   engine=$(ruby -e 'print defined?(RUBY_ENGINE) ? RUBY_ENGINE : "ruby"' 2>/dev/null)
   api=$(ruby -e 'require "rbconfig"; print RbConfig::CONFIG["ruby_version"]' 2>/dev/null)
@@ -241,25 +245,39 @@ fi
 # NVM is only sourced when nvm, node, or npm is actually invoked
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 
-nvm() {
-  unset -f nvm node npm
+_nvm_lazy_load() {
+  unset -f nvm node npm npx corepack
   [[ -s "$NVM_DIR/nvm.sh" ]] && \. "$NVM_DIR/nvm.sh"
   [[ -s "$NVM_DIR/bash_completion" ]] && \. "$NVM_DIR/bash_completion"
+}
+
+nvm() {
+  _nvm_lazy_load
   nvm "$@"
 }
 
 node() {
-  unset -f nvm node npm
-  [[ -s "$NVM_DIR/nvm.sh" ]] && \. "$NVM_DIR/nvm.sh"
+  _nvm_lazy_load
   nvm use default > /dev/null 2>&1 || true
   node "$@"
 }
 
 npm() {
-  unset -f nvm node npm
-  [[ -s "$NVM_DIR/nvm.sh" ]] && \. "$NVM_DIR/nvm.sh"
+  _nvm_lazy_load
   nvm use default > /dev/null 2>&1 || true
   npm "$@"
+}
+
+npx() {
+  _nvm_lazy_load
+  nvm use default > /dev/null 2>&1 || true
+  npx "$@"
+}
+
+corepack() {
+  _nvm_lazy_load
+  nvm use default > /dev/null 2>&1 || true
+  corepack "$@"
 }
 
 # ================================= Rust ====================================
@@ -328,8 +346,9 @@ _detect_mysql_path() {
   
   for path in "${mysql_paths[@]}"; do
     if [[ -f "$path" ]]; then
-      # Use zsh parameter expansion instead of dirname command
-      echo "${path%/*}"
+      # Return the base directory (two levels up from mysql.server)
+      # e.g., /opt/homebrew/opt/mysql/support-files/mysql.server -> /opt/homebrew/opt/mysql
+      echo "${path%/support-files/mysql.server}"
       return 0
     fi
   done
@@ -407,14 +426,13 @@ fi
 # to keep .zshrc lean and to improve shell startup performance.
 # Alias to the maintain-system script:
 # Uses XDG_DATA_HOME if set, otherwise fall back to ~/.local/bin
-maintain_system_bin="${XDG_DATA_HOME:-$HOME/.local/share}/../bin/maintain-system"
-[[ -x "$maintain_system_bin" ]] || maintain_system_bin="$HOME/.local/bin/maintain-system"
+maintain_system_bin="$HOME/.local/bin/maintain-system"
 if [[ -x "$maintain_system_bin" ]]; then
   alias update="$maintain_system_bin update"
   alias verify="$maintain_system_bin verify"
   alias versions="$maintain_system_bin versions"
   alias upgrade="$maintain_system_bin upgrade"
-  alias install="$maintain_system_bin install"
+  alias sys-install="$maintain_system_bin install"
   alias dev-tools="$maintain_system_bin dev-tools"
 fi
 

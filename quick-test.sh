@@ -39,6 +39,13 @@ else
   test_failed=1
 fi
 
+if bash -n scripts/nix-macos-maintenance.sh; then
+  echo "${GREEN}✅ OK: scripts/nix-macos-maintenance.sh syntax valid${NC}"
+else
+  echo "FAIL: scripts/nix-macos-maintenance.sh syntax error"
+  test_failed=1
+fi
+
 echo ""
 echo "2. Testing file existence..."
 if [[ -f install.sh ]]; then

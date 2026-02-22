@@ -285,12 +285,12 @@ install_pyenv() {
         echo "${GREEN}✅ pyenv installed${NC}"
         # Install latest Python after pyenv is installed
         echo "  ${BLUE}INFO:${NC} Installing latest Python via pyenv..."
-        # Source pyenv if available
-        if [[ -f "$HOME/.pyenv/bin/pyenv" ]]; then
+        # Source pyenv: check Homebrew location first, then ~/.pyenv
+        if [[ -d "$HOMEBREW_PREFIX/opt/pyenv" ]]; then
+          export PATH="$HOMEBREW_PREFIX/opt/pyenv/bin:$PATH"
+          eval "$(pyenv init -)" 2>/dev/null || true
+        elif [[ -f "$HOME/.pyenv/bin/pyenv" ]]; then
           export PATH="$HOME/.pyenv/bin:$PATH"
-          # Note: eval is required for pyenv initialization (standard practice)
-          # pyenv init outputs shell configuration that must be evaluated
-          # Note: eval is required for pyenv initialization (standard practice)
           eval "$(pyenv init -)" 2>/dev/null || true
         fi
         # Brief delay for pyenv shims to initialize after sourcing
@@ -349,8 +349,12 @@ install_nvm() {
     echo "  Installing nvm..."
     # Get latest nvm version dynamically from GitHub API
     local nvm_version=""
-    nvm_version="$(/usr/bin/curl -fsSL --connect-timeout 10 https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null | /usr/bin/grep '"tag_name"' | /usr/bin/sed -E 's/.*"([^"]+)".*/\1/' || echo "v0.40.1")"
-    [[ -z "$nvm_version" || ! "$nvm_version" =~ ^v[0-9] ]] && nvm_version="v0.40.1"
+    nvm_version="$(/usr/bin/curl -fsSL --connect-timeout 10 https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null | /usr/bin/grep '"tag_name"' | /usr/bin/sed -E 's/.*"([^"]+)".*/\1/' || echo "")"
+    if [[ -z "$nvm_version" || ! "$nvm_version" =~ ^v[0-9] ]]; then
+      echo "${RED}❌ Failed to determine latest nvm version from GitHub API${NC}"
+      warn "nvm installation failed (could not fetch version)"
+      return 1
+    fi
     echo "  ${BLUE}INFO:${NC} Installing nvm $nvm_version..."
     if /usr/bin/curl --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | /bin/bash; then
       echo "${GREEN}✅ nvm installed${NC}"
@@ -426,15 +430,17 @@ install_chruby() {
   done
   
   if [[ "$chruby_installed" == false ]]; then
-    if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+    if [[ "$CHECK_MODE" == true ]]; then
+      echo "${YELLOW}📦 chruby: Would install via Homebrew${NC}"
+    elif [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
       if _ask_user "${YELLOW}📦 chruby not found. Install chruby and ruby-install via Homebrew?" "Y"; then
         if "$HOMEBREW_PREFIX/bin/brew" install chruby ruby-install; then
           echo "${GREEN}✅ chruby and ruby-install installed${NC}"
-          # Find chruby script
-          if [[ -f /usr/local/share/chruby/chruby.sh ]]; then
-            chruby_script="/usr/local/share/chruby/chruby.sh"
-          elif [[ -f "$HOME/.local/share/chruby/chruby.sh" ]]; then
-            chruby_script="$HOME/.local/share/chruby/chruby.sh"
+          # Find chruby script via Homebrew prefix (works on both Intel and Apple Silicon)
+          local chruby_prefix
+          chruby_prefix=$("$HOMEBREW_PREFIX/bin/brew" --prefix chruby 2>/dev/null || echo "")
+          if [[ -n "$chruby_prefix" ]] && [[ -f "$chruby_prefix/share/chruby/chruby.sh" ]]; then
+            chruby_script="$chruby_prefix/share/chruby/chruby.sh"
           fi
         else
           warn "chruby installation failed"
@@ -445,10 +451,6 @@ install_chruby() {
     fi
   else
     echo "${GREEN}✅ chruby already installed${NC}"
-  fi
-  
-  if [[ "$CHECK_MODE" == true ]] && [[ "$chruby_installed" == false ]]; then
-    echo "${YELLOW}📦 chruby: Would install via Homebrew${NC}"
   fi
   
   # Check for ruby-install separately
@@ -463,7 +465,10 @@ install_chruby() {
   fi
   
   if [[ "$ruby_install_installed" == false ]]; then
-    if [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+    if [[ "$CHECK_MODE" == true ]]; then
+      echo "${YELLOW}📦 ruby-install: Would install via Homebrew${NC}"
+      return 0
+    elif [[ -n "$HOMEBREW_PREFIX" ]] && [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
       if _ask_user "${YELLOW}📦 ruby-install not found. Install ruby-install?" "Y"; then
         if "$HOMEBREW_PREFIX/bin/brew" install ruby-install; then
           echo "${GREEN}✅ ruby-install installed${NC}"
@@ -475,12 +480,12 @@ install_chruby() {
   else
     echo "${GREEN}✅ ruby-install already installed${NC}"
   fi
-  
-  if [[ "$CHECK_MODE" == true ]] && [[ "$ruby_install_installed" == false ]]; then
-    echo "${YELLOW}📦 ruby-install: Would install via Homebrew${NC}"
+
+  # Skip Ruby installation in check mode
+  if [[ "$CHECK_MODE" == true ]]; then
     return 0
   fi
-  
+
   # Install Ruby if chruby and ruby-install are available
   if command -v ruby-install >/dev/null 2>&1; then
     # Check if Ruby is already installed
@@ -887,14 +892,14 @@ test_detection() {
           fi
           ;;
         rustup)
-          if [[ -f "$HOME/.cargo/bin/rustup" ]] || [[ -d "$HOME/.cargo" ]]; then
+          if [[ -f "$HOME/.cargo/bin/rustup" ]]; then
             echo "${GREEN}✅ $name: Found at $HOME/.cargo${NC}"
             ((all_found++))
             continue
           fi
           ;;
         swiftly)
-          if [[ -f "$HOME/.swiftly/bin/swiftly" ]] || [[ -d "$HOME/.swiftly" ]]; then
+          if [[ -f "$HOME/.swiftly/bin/swiftly" ]]; then
             echo "${GREEN}✅ $name: Found at $HOME/.swiftly${NC}"
             ((all_found++))
             continue
@@ -955,20 +960,12 @@ main() {
   fi
   
   # Language Package Managers
-  if [[ "$CHECK_MODE" == true ]]; then
-    echo "${BLUE}=== Language Package Managers ===${NC}"
-  else
-    echo "${BLUE}=== Language Package Managers ===${NC}"
-  fi
+  echo "${BLUE}=== Language Package Managers ===${NC}"
   install_conda
   install_pipx
-  
+
   echo ""
-  if [[ "$CHECK_MODE" == true ]]; then
-    echo "${BLUE}=== Language Version Managers & Runtimes ===${NC}"
-  else
-    echo "${BLUE}=== Language Version Managers & Runtimes ===${NC}"
-  fi
+  echo "${BLUE}=== Language Version Managers & Runtimes ===${NC}"
   install_pyenv
   install_nvm
   install_chruby
