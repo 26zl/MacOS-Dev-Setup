@@ -2463,10 +2463,16 @@ update() {
     fi
     
     # Cleanup Nix store (gc + optimise)
+    # Try new CLI first, fall back to sudo nix-collect-garbage (works without experimental features)
     echo "  Cleaning Nix store..."
     local gc_output
     local gc_exit_code=0
     gc_output=$(nix store gc 2>&1) || gc_exit_code=$?
+    if [[ $gc_exit_code -ne 0 ]]; then
+      # Retry with sudo using classic command (no experimental features needed)
+      gc_exit_code=0
+      gc_output=$(sudo nix-collect-garbage 2>&1) || gc_exit_code=$?
+    fi
     if [[ $gc_exit_code -eq 0 ]]; then
       local freed_space
       freed_space=$(echo "$gc_output" | grep -iE "(freed|removed|deleted).*[0-9]+.*(bytes|KB|MB|GB)" | head -1 || echo "")
