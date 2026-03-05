@@ -2373,7 +2373,8 @@ update() {
     else
       # Count outdated apps
       local outdated_count
-      outdated_count=$(echo "$outdated_output" | grep -cE "^[0-9]+" || echo "0")
+      outdated_count=$(echo "$outdated_output" | grep -cE "^[0-9]+" 2>/dev/null)
+      outdated_count=${outdated_count:-0}
 
       if [[ "$outdated_count" -gt 0 ]]; then
         echo "  Found $outdated_count outdated app(s):"
