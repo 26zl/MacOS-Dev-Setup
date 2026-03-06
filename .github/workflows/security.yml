@@ -79,16 +79,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Run Trivy via Docker to avoid setup-trivy install failures on runner
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'   # do not fail job on findings so SARIF is always written and uploaded
-          version: 'v0.52.0'   # pin to avoid install failures with v0.56.1 on runner
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/src \
+            -w /src \
+            aquasec/trivy:0.52.0 fs \
+            --format sarif \
+            --output trivy-results.sarif \
+            --severity CRITICAL,HIGH \
+            .
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
