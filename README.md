@@ -166,7 +166,7 @@ The `update` command gracefully skips missing tools and shows installation instr
 2. Ensure ShellCheck passes
 3. Test on both Intel and Apple Silicon Macs
 
-**CI/CD**: ShellCheck, Gitleaks, Trivy, syntax checks, comprehensive macOS tests.
+**CI/CD**: ShellCheck, Gitleaks, syntax checks, comprehensive macOS tests.
 
 ## License
 

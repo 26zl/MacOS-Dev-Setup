@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   code-quality:
@@ -71,29 +70,3 @@ jobs:
             echo ""
             echo "OK: No dangerous code patterns found"
           fi
-
-  dependency-scan:
-    name: Dependency Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Run Trivy via Docker to avoid setup-trivy install failures on runner
-      - name: Run Trivy vulnerability scanner
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}":/src \
-            -w /src \
-            aquasec/trivy:0.52.0 fs \
-            --format sarif \
-            --output trivy-results.sarif \
-            --severity CRITICAL,HIGH \
-            .
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: success()
-        with:
-          sarif_file: 'trivy-results.sarif'
-

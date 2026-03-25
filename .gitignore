@@ -69,7 +69,6 @@ Thumbs.db
 
 # GitHub Actions artifacts
 *.sarif
-trivy-results.sarif
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
