@@ -26,6 +26,11 @@ jobs:
     outputs:
       all-success: ${{ steps.check.outputs.all-success }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - name: Wait for all workflows and check status
         id: check
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
@@ -135,6 +140,11 @@ jobs:
         github.event_name == 'workflow_dispatch'
       )
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
